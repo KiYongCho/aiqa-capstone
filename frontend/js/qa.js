@@ -146,7 +146,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
         captionHtml +
         answerHtml;
 
-      qaList.appendChild(div);
+      qaList.appendChild(div); 
     });
   }
 
