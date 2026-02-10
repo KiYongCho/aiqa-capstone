@@ -1,3 +1,5 @@
+const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소로 바꾸기
+
 (function () {
   const questionInput = document.getElementById('questionInput');
   const submitBtn = document.getElementById('submitBtn');
@@ -155,8 +157,9 @@
   }
 
   function getApiBase() {
-    if (window.location.protocol === 'http:' || window.location.protocol === 'https:') return window.location.origin;
-    return 'http://localhost:3000';
+    //if (window.location.protocol === 'http:' || window.location.protocol === 'https:') return window.location.origin;
+    //return 'http://localhost:3000';
+    return API_BASE;
   }
 
   function setQuestionUIEnabled(enabled) {
