@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>강의 Q&A</title>
+
+  <!-- Tailwind CDN (유지) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="../css/qa.css" />
+</head>
+
+<body class="flex h-full flex-col overflow-hidden bg-[#0c0c0e] text-zinc-50 antialiased">
+  <!-- 툴바 -->
+  <div class="shrink-0 border-b border-white/[0.06] bg-white/[0.02] p-4">
+    <div class="mb-3 flex justify-end">
+      <button type="button" class="text-xs font-medium text-zinc-500 underline-offset-2 transition hover:text-zinc-300 hover:underline" id="resetBtn">🗑️ 답변 초기화</button>
+    </div>
+
+    <div class="mb-3 flex gap-2.5">
+      <button type="button" class="btn-voice flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm font-semibold text-zinc-400 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-60" id="voiceBtn" disabled>🎤 음성 질문</button>
+      <button type="button" class="btn-text flex-1 min-w-0 rounded-lg border-0 bg-gradient-to-b from-indigo-500 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60" id="submitBtn" disabled>✏️ 텍스트 질문</button>
+    </div>
+
+    <div class="min-h-[18px] mb-2.5 text-xs tracking-wide text-zinc-500" id="voiceStatus"></div>
+
+    <div class="mb-2 text-[11px] text-zinc-500">
+      <span class="text-zinc-400 font-semibold">강의키:</span>
+      <span id="videoKeyLabel" class="ml-1">default</span>
+      <span class="ml-2 text-zinc-600" id="providerLabel"></span>
+    </div>
+
+    <textarea
+      id="questionInput"
+      placeholder="강의 재생 중에만 질문할 수 있습니다."
+      maxlength="500"
+      disabled
+      class="w-full min-h-[108px] resize-y rounded-lg border border-white/[0.08] bg-white/[0.04] px-3.5 py-3 text-sm leading-normal text-zinc-50 placeholder-zinc-500 transition focus:border-indigo-500/50 focus:outline-none focus:ring-3 focus:ring-indigo-500/20 disabled:opacity-60 disabled:cursor-not-allowed"
+    ></textarea>
+  </div>
+
+  <!-- Q&A 목록 -->
+  <div class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3.5" id="qaList">
+    <div class="text-center py-10 px-5 text-sm leading-relaxed text-zinc-600" id="qaEmpty">아직 질문이 없습니다. 첫 질문을 남겨보세요.</div>
+  </div>
+
+  <!-- 초기화 확인 모달 -->
+  <div class="fixed inset-0 z-[1000] hidden items-center justify-center bg-black/60 p-4" id="resetModal" aria-hidden="true">
+    <div class="w-full max-w-[320px] rounded-xl border border-white/10 bg-zinc-800 p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="resetModalTitle">
+      <h2 class="mb-2 text-[15px] font-semibold text-zinc-50" id="resetModalTitle">🗑️ 답변 초기화</h2>
+      <p class="mb-5 text-sm leading-normal text-zinc-400">현재 강의(강의키)의 모든 질문과 답변이 삭제됩니다. 진행할까요?</p>
+      <div class="flex gap-2.5 justify-end">
+        <button type="button" class="rounded-lg border border-white/20 bg-transparent px-4 py-2.5 text-sm font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200" id="resetModalCancel">✕ 취소</button>
+        <button type="button" class="rounded-lg border-0 bg-red-500/20 px-4 py-2.5 text-sm font-medium text-red-300 transition hover:bg-red-500/30 hover:text-red-200" id="resetModalConfirm">🗑️ 초기화</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App JS -->
+  <script src="../js/qa.js"></script>
+</body>
+</html>

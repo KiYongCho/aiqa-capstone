@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>강의 시청 · Q&A</title>
+
+  <!-- Tailwind CDN (유지) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/index.css" />
+</head>
+<body class="h-screen overflow-hidden bg-zinc-900 text-zinc-200">
+  <div class="flex h-full flex-col md:flex-row">
+    <!-- 비디오 영역 -->
+    <section class="flex min-w-0 flex-1 flex-col overflow-hidden bg-zinc-800">
+      <header class="flex shrink-0 items-center gap-2 border-b border-zinc-700 px-4 py-2">
+        <span class="text-sm font-semibold whitespace-nowrap">강의 영상</span>
+        <input
+          type="text"
+          id="videoUrl"
+          value="https://www.youtube.com/watch?v=vLwz-fYnnFo"
+          placeholder="YouTube URL 또는 동영상 URL 입력"
+          class="min-w-0 flex-1 rounded border border-zinc-600 bg-zinc-700/50 px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        />
+        <button
+          type="button"
+          id="videoApply"
+          class="shrink-0 rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
+        >적용</button>
+      </header>
+
+      <div class="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden p-2">
+        <video id="nativeVideo" class="max-h-full max-w-full rounded-lg bg-black object-contain hidden" controls playsinline></video>
+
+        <div id="youtubeWrap" class="hidden h-full w-full max-h-full max-w-full flex items-center justify-center">
+          <div class="relative w-full max-h-full aspect-video shrink-0">
+            <div id="ytPlayer" class="absolute inset-0 h-full w-full rounded-lg overflow-hidden"></div>
+          </div>
+        </div>
+
+        <p id="videoPlaceholder" class="text-sm text-zinc-500">
+          위 입력창에 YouTube 주소 또는 동영상 URL을 넣고 [적용]을 누르세요.
+        </p>
+      </div>
+    </section>
+
+    <!-- Q&A 패널 -->
+    <section class="flex h-[40%] w-full flex-col border-t border-zinc-700 bg-zinc-800 md:h-auto md:w-[380px] md:min-w-[380px] md:border-l md:border-t-0">
+      <header class="shrink-0 border-b border-zinc-700 px-4 py-3 text-sm font-semibold">강의 Q&A</header>
+      <div class="min-h-0 flex-1">
+        <iframe class="h-full w-full border-0 block" src="html/qa.html" title="강의 질문과 답변"></iframe>
+      </div>
+    </section>
+  </div>
+
+  <!-- YouTube IFrame Player API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+
+  <!-- App JS -->
+  <script src="js/index.js"></script>
+</body>
+</html>
