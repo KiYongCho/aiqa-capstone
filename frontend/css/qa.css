@@ -1,4 +1,4 @@
-/* ===== 추가: 질문 예시 칩 ===== */
+/* 질문 예시 칩 */
 .qa-chip {
   border: 1px solid rgba(255, 255, 255, 0.10);
   background: rgba(255, 255, 255, 0.04);
@@ -20,7 +20,7 @@
   transform: none;
 }
 
-/* ===== 추가: 강의 미재생 상태 안내 애니메이션 ===== */
+/* 강의 미재생 상태 안내 애니메이션 */
 .aiqa-hint-pulse {
   animation: aiqaHintPulse 1.4s ease-in-out infinite;
 }
