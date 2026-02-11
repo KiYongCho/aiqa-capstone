@@ -135,4 +135,49 @@
   border: 1px solid rgba(99,102,241,0.35);
   box-shadow: 0 10px 24px rgba(99,102,241,0.15);
 }
+
+/* ==============================
+   ✅ iframe 내부 스크롤 안정화
+   ============================== */
+   html, body { height: 100%; }
+
+   /* qaList는 이미 Tailwind로 overflow-y-auto지만,
+      iframe 내부에서 높이 계산이 꼬이는 경우를 방지 */
+   #qaList { min-height: 0; }
+   
+   /* ==============================
+      ✅ TOP 버튼 (우하단)
+      ============================== */
+   .qa-top{
+     position: fixed;
+     right: 14px;
+     bottom: 14px;
+     z-index: 1200;
+     padding: 10px 12px;
+     border-radius: 9999px;
+     border: 1px solid rgba(255,255,255,0.15);
+     background: rgba(15,15,18,0.80);
+     color: rgba(255,255,255,0.92);
+     font-size: 12px;
+     font-weight: 800;
+     letter-spacing: .02em;
+     backdrop-filter: blur(10px);
+     -webkit-backdrop-filter: blur(10px);
+     box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+     transition: transform .15s ease, opacity .15s ease, border-color .15s ease;
+   }
+   
+   .qa-top:hover{
+     transform: translateY(-2px);
+     border-color: rgba(255,255,255,0.25);
+   }
+   
+   .qa-top:active{
+     transform: translateY(0px);
+   }
+   
+   .qa-top.hidden{
+     display: none;
+   }
+   
  

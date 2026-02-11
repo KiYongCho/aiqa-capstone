@@ -20,6 +20,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   const hintLabel = document.getElementById('hintLabel');
   const chipsWrap = document.getElementById('exampleChips');
   const chipButtons = chipsWrap ? Array.from(chipsWrap.querySelectorAll('button[data-example]')) : [];
+  const toTopBtn = document.getElementById('toTopBtn');
 
   // ✅ 오버레이 요소
   const playOverlay = document.getElementById('playOverlay');
@@ -190,6 +191,26 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
 
       qaList.appendChild(div);
     });
+
+  // =========================================
+  // ✅ TOP 버튼 로직 (스크롤 대상: qaList)
+  // =========================================
+  function syncTopButton() {
+    if (!toTopBtn || !qaList) return;
+    const y = qaList.scrollTop || 0;
+    toTopBtn.classList.toggle('hidden', y < 240);
+  }
+
+  if (qaList) {
+    qaList.addEventListener('scroll', syncTopButton, { passive: true });
+  }
+
+  if (toTopBtn) {
+    toTopBtn.addEventListener('click', () => {
+      if (!qaList) return;
+      qaList.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
 
     syncQAUI();
   }
