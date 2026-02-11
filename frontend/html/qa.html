@@ -69,3 +69,62 @@
         class="text-xs font-medium text-zinc-500 underline-offset-2 transition hover:text-zinc-300 hover:underline"
         id="resetBtn"
       >
+        🗑️ 답변 초기화
+      </button>
+    </div>
+  </div>
+
+  <!-- Q&A 목록 -->
+  <div class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3.5" id="qaList">
+    <div
+      class="text-center py-10 px-5 text-sm leading-relaxed text-zinc-600"
+      id="qaEmpty"
+    >
+      아직 질문이 없습니다. 첫 질문을 남겨보세요.
+    </div>
+  </div>
+
+  <!-- 초기화 확인 모달 -->
+  <div
+    class="fixed inset-0 z-[1000] hidden items-center justify-center bg-black/60 p-4"
+    id="resetModal"
+    aria-hidden="true"
+  >
+    <div
+      class="w-full max-w-[320px] rounded-xl border border-white/10 bg-zinc-800 p-5 shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="resetModalTitle"
+    >
+      <h2
+        class="mb-2 text-[15px] font-semibold text-zinc-50"
+        id="resetModalTitle"
+      >
+        🗑️ 답변 초기화
+      </h2>
+      <p class="mb-5 text-sm leading-normal text-zinc-400">
+        현재 강의(강의키)의 모든 질문과 답변이 삭제됩니다. 진행할까요?
+      </p>
+      <div class="flex gap-2.5 justify-end">
+        <button
+          type="button"
+          class="rounded-lg border border-white/20 bg-transparent px-4 py-2.5 text-sm font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200"
+          id="resetModalCancel"
+        >
+          ✕ 취소
+        </button>
+        <button
+          type="button"
+          class="rounded-lg border-0 bg-red-500/20 px-4 py-2.5 text-sm font-medium text-red-300 transition hover:bg-red-500/30 hover:text-red-200"
+          id="resetModalConfirm"
+        >
+          🗑️ 초기화
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App JS -->
+  <script src="../js/qa.js"></script>
+</body>
+</html>
