@@ -1,5 +1,5 @@
 // qa.js (JSON 단발 응답 버전: 스트리밍 의존 제거)
-const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
+const API_BASE = "https://aiqa-capstone.onrender.com";
 
 (function () {
   const questionInput = document.getElementById('questionInput');
@@ -13,33 +13,15 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
   const videoKeyLabel = document.getElementById('videoKeyLabel');
   const providerLabel = document.getElementById('providerLabel');
 
-  // ✅ UX 요소(qa.html에 있어야 함)
   const resetWrap = document.getElementById('resetWrap');
   const hintLabel = document.getElementById('hintLabel');
   const chipsWrap = document.getElementById('exampleChips');
   const chipButtons = chipsWrap ? Array.from(chipsWrap.querySelectorAll('button[data-example]')) : [];
 
-  // =========================
-  // ✅ origin 처리
-  // =========================
-  function safeParseUrl(u) {
-    try { return new URL(u); } catch (_) { return null; }
-  }
-
+  function safeParseUrl(u) { try { return new URL(u); } catch { return null; } }
   const ref = safeParseUrl(document.referrer);
   const parentOriginFromReferrer = ref ? ref.origin : '';
-
-  const here = new URL(window.location.href);
-  const port = here.port || (here.protocol === 'https:' ? '443' : '80');
-
-  const samePortLocalhost = `${here.protocol}//localhost:${port}`;
-  const samePortLoopback = `${here.protocol}//127.0.0.1:${port}`;
-
   const PARENT_ORIGIN = parentOriginFromReferrer || window.location.origin;
-
-  const ALLOWED_PARENT_ORIGINS = new Set(
-    [PARENT_ORIGIN, window.location.origin, samePortLocalhost, samePortLoopback].filter(Boolean)
-  );
 
   function getPostTargetOrigin() {
     if (PARENT_ORIGIN && PARENT_ORIGIN.startsWith('http')) return PARENT_ORIGIN;
@@ -55,7 +37,6 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
   let youtubeId = '';
 
   let speechSupported = false;
-  let questionMode = false;
 
   function storageKey() {
     return 'lecture-qa:' + (videoKey || 'default');
@@ -88,7 +69,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
   }
 
   // =========================
-  // ✅ UX 동기화
+  // UX 동기화
   // =========================
   function isQuestionEnabled() {
     return questionInput && !questionInput.disabled;
@@ -97,19 +78,16 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
   function syncQAUI() {
     const enabled = isQuestionEnabled();
 
-    // 1) 초기화 버튼은 질문 가능할 때만 노출
     if (resetWrap) resetWrap.classList.toggle('hidden', !enabled);
 
-    // 2) 강의 미재생(질문 불가)일 때 안내문 애니 + 문구
     if (hintLabel) {
       hintLabel.classList.toggle('aiqa-hint-pulse', !enabled);
       hintLabel.textContent = enabled
         ? '질문을 입력하고 전송해 주세요.'
-        : 'AIQA에게질문하세요! (강의 재생 후 질문 가능)';
+        : 'AIQA에게질문하세요! (영상이 멈추면 질문 가능)';
     }
 
-    // 3) 칩은 질문 가능할 때만 활성화
-    chipButtons.forEach((btn) => { btn.disabled = !enabled; });
+    chipButtons.forEach(btn => { btn.disabled = !enabled; });
   }
 
   chipButtons.forEach((btn) => {
@@ -137,11 +115,6 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
       const div = document.createElement('div');
       div.className = 'qa-item mb-3.5 overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.03]';
 
-      const meta = [];
-      if (item.videoKey) meta.push('key=' + item.videoKey);
-      if (item.tLabel) meta.push('t=' + item.tLabel);
-      if (item.captionSnippet) meta.push('caption=ON');
-
       let answerHtml = '';
       if (item.answer) {
         answerHtml =
@@ -165,25 +138,12 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
           '</div>';
       }
 
-      let captionHtml = '';
-      if (item.captionSnippet) {
-        captionHtml =
-          '<div class="border-t border-white/[0.05] bg-white/[0.02] px-3.5 py-3">' +
-            '<div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">자막 스니펫</div>' +
-            '<div class="text-[12px] leading-relaxed text-zinc-400 whitespace-pre-wrap">' +
-              escapeHtml(item.captionSnippet) +
-            '</div>' +
-          '</div>';
-      }
-
       div.innerHTML =
         '<div class="flex items-center gap-2.5 px-3.5 pt-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">' +
           '<strong class="text-xs font-semibold text-violet-400">Q' + (originalIndex + 1) + '</strong> ' +
           (item.time || '') +
-          (meta.length ? '<span class="ml-auto text-[10px] text-zinc-600">' + escapeHtml(meta.join(' · ')) + '</span>' : '') +
         '</div>' +
         '<div class="px-3.5 pb-3.5 text-sm leading-relaxed text-zinc-200 whitespace-pre-wrap">' + escapeHtml(item.question) + '</div>' +
-        captionHtml +
         answerHtml;
 
       qaList.appendChild(div);
@@ -192,15 +152,11 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
     syncQAUI();
   }
 
-  function getApiBase() {
-    return API_BASE;
-  }
-
   function setQuestionUIEnabled(enabled) {
     questionInput.disabled = !enabled;
     submitBtn.disabled = !enabled;
     voiceBtn.disabled = !(enabled && speechSupported);
-    questionInput.placeholder = enabled ? '이 강의에 대해 질문을 입력하세요...' : '강의 재생 중에만 질문할 수 있습니다.';
+    questionInput.placeholder = enabled ? '이 강의에 대해 질문을 입력하세요...' : '영상이 멈추면 질문할 수 있습니다.';
     syncQAUI();
   }
 
@@ -210,15 +166,12 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
 
   async function requestTimeFromParent() {
     return new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve({ t: 0, tLabel: '00:00', provider: provider, youtubeId: youtubeId }), 400);
+      const timeout = setTimeout(() => resolve({ t: 0, tLabel: '00:00', provider, youtubeId }), 500);
 
       function onMsg(e) {
-        if (!ALLOWED_PARENT_ORIGINS.has(e.origin)) return;
         if (!e.data || e.data.type !== 'timeInfo') return;
-
         clearTimeout(timeout);
         window.removeEventListener('message', onMsg);
-
         resolve({
           t: Number(e.data.t || 0),
           tLabel: String(e.data.tLabel || '00:00'),
@@ -231,15 +184,13 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
       try { window.parent.postMessage({ type: 'requestTime' }, getPostTargetOrigin()); } catch (_) {
         clearTimeout(timeout);
         window.removeEventListener('message', onMsg);
-        resolve({ t: 0, tLabel: '00:00', provider: provider, youtubeId: youtubeId });
+        resolve({ t: 0, tLabel: '00:00', provider, youtubeId });
       }
     });
   }
 
   async function requestAnswer(payload) {
-    const base = getApiBase();
-    const url = base + '/api/answer';
-
+    const url = API_BASE + '/api/answer';
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -248,7 +199,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
 
     const text = await res.text().catch(() => '');
     let data = null;
-    try { data = text ? JSON.parse(text) : {}; } catch (_) { data = { raw: text }; }
+    try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
 
     if (!res.ok) {
       const msg = (data && data.error) ? data.error : (text || ('답변 생성 실패 (HTTP ' + res.status + ')'));
@@ -284,7 +235,6 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
       youtubeId: timeInfo.youtubeId,
       t: timeInfo.t,
       tLabel: timeInfo.tLabel,
-      captionSnippet: '',
       answer: '',
       error: ''
     });
@@ -307,7 +257,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
       });
       updateLastItem({ answer, error: '' });
     } catch (err) {
-      updateLastItem({ error: (err && err.message) ? err.message : '연결 실패' });
+      updateLastItem({ error: err?.message || '연결 실패' });
     } finally {
       submitBtn.disabled = false;
       syncQAUI();
@@ -319,20 +269,18 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
   // 부모 메시지 처리
   // =========================
   window.addEventListener('message', function (e) {
-    if (!ALLOWED_PARENT_ORIGINS.has(e.origin)) return;
+    if (!e.data) return;
 
-    // ✅ 재생 중이면 질문 불가
-    if (e.data && e.data.type === 'videoPlaying') {
-      questionMode = false;
+    if (e.data.type === 'videoPlaying') {
       setQuestionUIEnabled(false);
     }
 
-    // ✅ 멈추면 질문/답변 가능 (요구사항)
-    if (e.data && e.data.type === 'videoPaused') {
+    // ✅ “멈추면 무조건 질문 가능” (요구사항)
+    if (e.data.type === 'videoPaused') {
       setQuestionUIEnabled(true);
     }
 
-    if (e.data && e.data.type === 'videoInfo' && e.data.videoKey) {
+    if (e.data.type === 'videoInfo' && e.data.videoKey) {
       videoKey = String(e.data.videoKey);
       videoUrl = String(e.data.videoUrl || '');
       provider = String(e.data.provider || 'native');
@@ -349,12 +297,11 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
   // UI 이벤트
   // =========================
   submitBtn.addEventListener('click', function () {
-    // ✅ 질문 버튼 누르면 강의가 멈춰야 함 (항상 pause 요청)
+    // ✅ 질문 버튼 누르면 강의 멈춤 요청
     notifyParentPause();
 
     const v = (questionInput.value || '').trim();
     if (!v) {
-      questionMode = true;
       setQuestionUIEnabled(true);
       questionInput.focus();
       return;
@@ -371,14 +318,6 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
   });
 
   questionInput.addEventListener('focus', function () {
-    questionMode = true;
-    setQuestionUIEnabled(true);
-    notifyParentPause();
-  });
-
-  voiceBtn.addEventListener('focus', function () {
-    questionMode = true;
-    setQuestionUIEnabled(true);
     notifyParentPause();
   });
 
@@ -401,8 +340,6 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
     voiceBtn.addEventListener('click', function () {
       if (voiceBtn.disabled) return;
 
-      questionMode = true;
-      setQuestionUIEnabled(true);
       notifyParentPause();
 
       if (voiceBtn.classList.contains('listening')) {
@@ -480,5 +417,6 @@ const API_BASE = "https://aiqa-capstone.onrender.com"; // ← Render 주소
   });
 
   render();
-  setQuestionUIEnabled(false); // 초기엔 비활성(영상이 pause되면 부모가 videoPaused 보내며 활성화됨)
+  // ✅ 초기에는 비활성. 부모가 paused를 보내면 활성화됩니다.
+  setQuestionUIEnabled(false);
 })();
