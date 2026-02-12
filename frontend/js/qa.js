@@ -9,7 +9,7 @@ import { renderQA } from "./ui/qa.view.js";
 
 const player = createPlayerService();
 const store = createLectureStore(() => videoKey);
-const share = createShareService("PASTE_KAKAO_KEY");
+const share = createShareService("4632c8134c3d32664cbef8f20b497882"); // kako api key
 
 let videoKey = "default";
 
