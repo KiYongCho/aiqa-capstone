@@ -1,4 +1,12 @@
-// qa.js
+// qa.js (FULL)
+// - 오버레이: 재생 중 중앙 모달 + 클릭하면 pause 요청 + paused 오면 활성화
+// - Hybrid STT:
+//   - 실시간 표시: Web Speech API (interim -> textarea, 불안정하면 자동 재시도)
+//   - 최종 확정: /api/stt (Render 서버) 고품질 전사로 textarea 정제
+// - 답변 UI:
+//   - 답변 상단: [답변 크게보기] [카카오 공유] [메일로 보내기]
+//   - 카카오 공유: objectType 'text' 템플릿 (텍스트 노출 안정)
+//   - 무반응 방지: 클릭 시 console/alert/catch 처리 + 이벤트 위임 강제 바인딩
 const API_BASE = "https://aiqa-capstone.onrender.com";
 
 /** =========================
@@ -35,7 +43,7 @@ const SHARE_SNIPPET_LEN = 180;
   const overlayBtn = document.getElementById('overlayBtn');
   const overlaySub = document.getElementById('overlaySub');
 
-  // ✅ 답변 크게보기 모달
+  // ✅ 답변 크게보기 모달 (qa.html에 존재해야 함)
   const answerModal = document.getElementById('answerModal');
   const answerCloseBtn = document.getElementById('answerCloseBtn');
   const answerCopyBtn = document.getElementById('answerCopyBtn');
@@ -73,12 +81,13 @@ const SHARE_SNIPPET_LEN = 180;
   let realtimeFinal = "";
   let realtimeInterim = "";
 
+  // 실시간 인식 안정화(자동 재시도)
   let realtimeWanted = false;
   let realtimeRestartTimer = null;
 
+  // 이벤트 중복 바인딩 방지
   let boundScroll = false;
   let boundTopBtn = false;
-  let boundQaListDelegate = false;
 
   // =========================
   // ✅ Kakao 초기화
@@ -95,6 +104,7 @@ const SHARE_SNIPPET_LEN = 180;
       return false;
     }
   }
+  // 최초 한번 시도(로드 타이밍상 실패해도 클릭 시 재시도)
   const kakaoReady = initKakaoOnce();
 
   function storageKey() {
@@ -141,12 +151,9 @@ const SHARE_SNIPPET_LEN = 180;
   }
 
   function getShareLink() {
-    // ✅ “현재 페이지 링크” 우선
-    // - iframe이면 qa.html이 될 수 있지만, 그게 현재 페이지 링크이기도 함
-    // ✅ referrer가 실제 부모 페이지라면 referrer를 우선 사용
+    // ✅ “현재 페이지 링크” 우선 + https referrer 보조
     const r = document.referrer || '';
     if (r && r.startsWith('https://')) return r;
-    // http 환경이면 카톡 PC에서 “모바일에서 확인”이 뜰 확률이 커서 https referrer만 우선
     return window.location.href;
   }
 
@@ -250,27 +257,46 @@ const SHARE_SNIPPET_LEN = 180;
   }
 
   async function shareToKakaoText({ title, text, linkUrl }) {
-    const ok = initKakaoOnce();
+    // ✅ 무반응 방지: 콘솔 로그
+    console.log('[AIQOO] shareToKakaoText clicked', { title, linkUrl });
 
-    // 폴백: Web Share (모바일)
-    if (!ok || !window.Kakao || !window.Kakao.Share) {
-      if (navigator.share) {
-        try {
-          await navigator.share({ title, text: `${text}\n\n${linkUrl}`, url: linkUrl });
-          return;
-        } catch (_) {}
-      }
-      alert('카카오 공유를 사용하려면 Kakao JS 키 설정 및 도메인 등록이 필요합니다.');
+    // ✅ SDK 로드 확인
+    if (!window.Kakao) {
+      alert('카카오 SDK가 아직 로드되지 않았습니다. (qa.html에 kakao.min.js 포함 확인)');
       return;
     }
 
-    // ✅ 핵심: objectType 'text' → 텍스트가 카톡 메시지에 확실히 표시됨
-    window.Kakao.Share.sendDefault({
-      objectType: 'text',
-      text: `${text}\n\n🔗 ${linkUrl}`,
-      link: { mobileWebUrl: linkUrl, webUrl: linkUrl },
-      buttonTitle: '페이지 열기'
-    });
+    // ✅ init 재시도
+    const ok = initKakaoOnce();
+    if (!ok) {
+      alert('Kakao.init 실패: JS 키/도메인 등록을 확인해 주세요.');
+      console.warn('[AIQOO] Kakao init failed', {
+        hasKey: !!KAKAO_JS_KEY,
+        keyPreview: String(KAKAO_JS_KEY || '').slice(0, 6) + '...',
+        origin: window.location.origin
+      });
+      return;
+    }
+
+    // ✅ Share API 확인
+    if (!window.Kakao.Share || !window.Kakao.Share.sendDefault) {
+      alert('Kakao Share API를 사용할 수 없습니다. (SDK 버전/로드 상태 확인)');
+      console.warn('[AIQOO] Kakao.Share missing', window.Kakao);
+      return;
+    }
+
+    // ✅ 실제 공유 호출 + 실패 시 표시
+    try {
+      await window.Kakao.Share.sendDefault({
+        objectType: 'text',
+        text: `${text}\n\n🔗 ${linkUrl}`,
+        link: { mobileWebUrl: linkUrl, webUrl: linkUrl },
+        buttonTitle: '페이지 열기'
+      });
+    } catch (err) {
+      console.error('[AIQOO] Kakao share error:', err);
+      alert('카카오 공유 중 오류가 발생했습니다.\n콘솔(F12)에서 에러 로그를 확인해 주세요.');
+    }
   }
 
   function buildSharePayload(item, idx) {
@@ -281,7 +307,7 @@ const SHARE_SNIPPET_LEN = 180;
 
     const title = `AIQOO 답변 공유 · Q${idx + 1}`;
 
-    // ✅ 줄바꿈 최소/한 줄 중심: PC 카톡에서도 누락 확률 감소
+    // ✅ 줄바꿈 최소: PC 카톡에서도 누락 확률 감소
     const textLine = `Q: ${snippet(q, 70)} / A: ${aSnippet}`;
 
     const mailSubject = `AIQOO 답변 공유 (Q${idx + 1})`;
@@ -367,6 +393,7 @@ ${linkUrl}
 
   function bindTopButtonOnce() {
     if (!qaList || !toTopBtn) return;
+
     if (!boundScroll) {
       qaList.addEventListener('scroll', () => {
         const y = qaList.scrollTop || 0;
@@ -385,7 +412,77 @@ ${linkUrl}
   }
 
   // =========================
-  // ✅ render(): 답변 상단에 [크게보기][카카오][메일] 버튼
+  // ✅ 이벤트 위임: "무조건" 살아있게 보장
+  // =========================
+  function ensureQaListDelegation() {
+    const list = document.getElementById('qaList');
+    if (!list) return;
+
+    if (list.__aiqooDelegated) return;
+    list.__aiqooDelegated = true;
+
+    list.addEventListener('click', async (e) => {
+      const btn = e.target && e.target.closest ? e.target.closest('button[data-action]') : null;
+      if (!btn) return;
+
+      const action = btn.getAttribute('data-action');
+      const idx = Number(btn.getAttribute('data-idx'));
+
+      console.log('[AIQOO] action clicked:', action, idx);
+
+      if (!Number.isFinite(idx)) return;
+      const items = loadQA();
+      const item = items[idx];
+      if (!item) return;
+
+      if (action === 'shareKakao') {
+        if (!item.answer) { alert('답변 생성 후 공유할 수 있습니다.'); return; }
+        const payload = buildSharePayload(item, idx);
+
+        btn.disabled = true;
+        try {
+          await shareToKakaoText({
+            title: payload.title,
+            text: payload.textLine,
+            linkUrl: payload.linkUrl
+          });
+        } finally {
+          btn.disabled = false;
+        }
+        return;
+      }
+
+      if (action === 'shareMail') {
+        if (!item.answer) { alert('답변 생성 후 공유할 수 있습니다.'); return; }
+        const payload = buildSharePayload(item, idx);
+        openMailComposer({ subject: payload.mailSubject, body: payload.mailBody });
+        return;
+      }
+
+      if (action === 'answerZoom' || action === 'answerZoomError') {
+        const metaLine = [
+          `Q${idx + 1}`,
+          item.time ? String(item.time) : '',
+          item.provider ? String(item.provider) : '',
+          item.tLabel ? ('t=' + String(item.tLabel)) : ''
+        ].filter(Boolean).join(' · ');
+
+        const answerText = action === 'answerZoomError'
+          ? (item.error || '')
+          : (item.answer || '');
+
+        openAnswerModal({
+          metaLine,
+          question: item.question || '',
+          answer: answerText || ''
+        });
+        return;
+      }
+    });
+  }
+
+  // =========================
+  // ✅ render(): 답변 상단에 버튼
   // =========================
   function render() {
     videoKeyLabel.textContent = videoKey || 'default';
@@ -634,6 +731,7 @@ ${linkUrl}
     realtimeRec.onerror = (e) => {
       const err = e.error || '';
 
+      // 일부 오류는 계속 유지하면 더 불안정해지므로 stop 후 폴백
       if (err === 'audio-capture' || err === 'aborted') {
         voiceStatus.textContent = '실시간 인식이 불안정합니다. (종료 후 고품질 전사로 반영됩니다)';
         try { realtimeRec.stop(); } catch (_) {}
@@ -650,6 +748,7 @@ ${linkUrl}
 
       if (err === 'not-allowed' || err === 'service-not-allowed') return;
 
+      // 자동 재시도
       if (realtimeWanted && isRecording) {
         clearTimeout(realtimeRestartTimer);
         realtimeRestartTimer = setTimeout(() => {
@@ -663,6 +762,7 @@ ${linkUrl}
       realtimeInterim = '';
       applyRealtimeTextToTextarea();
 
+      // 녹음 중인데 onend가 자주 발생하면 재시도
       if (realtimeWanted && isRecording) {
         clearTimeout(realtimeRestartTimer);
         realtimeRestartTimer = setTimeout(() => {
@@ -758,11 +858,13 @@ ${linkUrl}
       return;
     }
 
+    // 1) 실시간 표시(WebSpeech) 시작(가능하면)
     const realtimeOk = startRealtimeSpeech();
     if (!realtimeOk) {
       voiceStatus.textContent = '🎙 음성 입력 중... (실시간 표시는 브라우저 미지원)';
     }
 
+    // 2) /api/stt용 녹음 시작
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     const preferredTypes = [
@@ -835,8 +937,11 @@ ${linkUrl}
       setOverlayPending(false);
       setQuestionUIEnabled(false);
 
+      // 재생 중엔 음성도 중단
       if (isRecording) stopRecordingHybrid();
+      // 재생 중엔 모달도 닫기
       if (isAnswerModalOpen()) closeAnswerModal();
+
       return;
     }
 
@@ -859,76 +964,6 @@ ${linkUrl}
 
   if (window.parent !== window) {
     try { window.parent.postMessage({ type: 'qaReady' }, getPostTargetOrigin()); } catch (_) {}
-  }
-
-  // =========================
-  // ✅ 버튼 클릭 처리 (이벤트 위임)
-  // =========================
-  if (qaList && !boundQaListDelegate) {
-    qaList.addEventListener('click', async (e) => {
-      const btn = e.target && e.target.closest ? e.target.closest('button[data-action]') : null;
-      if (!btn) return;
-
-      const action = btn.getAttribute('data-action');
-      const idxStr = btn.getAttribute('data-idx');
-      const idx = Number(idxStr);
-
-      // 크게보기
-      if (action === 'answerZoom' || action === 'answerZoomError') {
-        if (!Number.isFinite(idx)) return;
-        const items = loadQA();
-        const item = items[idx];
-        if (!item) return;
-
-        const metaLine = [
-          `Q${idx + 1}`,
-          item.time ? String(item.time) : '',
-          item.provider ? String(item.provider) : '',
-          item.tLabel ? ('t=' + String(item.tLabel)) : ''
-        ].filter(Boolean).join(' · ');
-
-        const answerText = action === 'answerZoomError'
-          ? (item.error || '')
-          : (item.answer || '');
-
-        openAnswerModal({
-          metaLine,
-          question: item.question || '',
-          answer: answerText || ''
-        });
-        return;
-      }
-
-      // 공유(답변이 있어야)
-      if (action === 'shareKakao' || action === 'shareMail') {
-        if (!Number.isFinite(idx)) return;
-        const items = loadQA();
-        const item = items[idx];
-        if (!item || !item.answer) return;
-
-        const payload = buildSharePayload(item, idx);
-
-        if (action === 'shareMail') {
-          openMailComposer({ subject: payload.mailSubject, body: payload.mailBody });
-          return;
-        }
-
-        if (action === 'shareKakao') {
-          btn.disabled = true;
-          try {
-            await shareToKakaoText({
-              title: payload.title,
-              text: payload.textLine,
-              linkUrl: payload.linkUrl
-            });
-          } finally {
-            btn.disabled = false;
-          }
-          return;
-        }
-      }
-    });
-    boundQaListDelegate = true;
   }
 
   // 텍스트 질문 전송
@@ -955,7 +990,7 @@ ${linkUrl}
     notifyParentPause();
   });
 
-  // 음성 버튼 토글
+  // ✅ 음성 버튼: “실시간 표시 + 최종 /api/stt 정제” 토글
   voiceBtn.addEventListener('click', async function () {
     if (voiceBtn.disabled) return;
 
@@ -1005,18 +1040,23 @@ ${linkUrl}
     if (e.target === resetModal) closeResetModal();
   });
 
+  // =========================
   // init
+  // =========================
+  ensureQaListDelegation();
   render();
   hideOverlay();
   setOverlayPending(false);
   setQuestionUIEnabled(false);
 
+  // 초기 안내
   if (!SpeechRecognition) {
     voiceStatus.textContent = '실시간 자막(Web Speech)이 미지원입니다. (끝내기 후 고품질 전사로 처리됩니다)';
   } else {
     voiceStatus.textContent = '';
   }
 
+  // Kakao init 경고(키를 넣었는데도 실패하는 경우)
   if (!kakaoReady && KAKAO_JS_KEY && !KAKAO_JS_KEY.includes("PASTE_YOUR")) {
     try { console.warn('[AIQOO] Kakao init failed. Check domain whitelist & key.'); } catch (_) {}
   }
