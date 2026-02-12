@@ -10,7 +10,7 @@ import { createPlayerService } from "/js/services/player.service.js";
 import { createSTTService } from "/js/services/stt.service.js";
 import { createShareService } from "/js/services/share.service.js";
 import { renderQA } from "/js/ui/qa.view.js";
-import { createModal } from "/js/ui/modal.view.js";
+import { createModal } from "/js/ui/modal.view.js"; 
 
 (function () {
   "use strict";
