@@ -1,21 +1,19 @@
-// js/qa.js (ENTRY MODULE) - 분리된 모듈 기반 “정상 동작용”
-// ✅ 반드시 qa.html에서 <script type="module" ...> 로 로드해야 합니다.
+// public/js/qa.js (ENTRY MODULE)
+// - 카톡 공유/메일 공유/크게보기 버튼 복구
+// - 절대경로 import (public 기준)
 
 import { createLectureStore } from "/js/core/store.js";
 import { normalizeText, formatTime, snippet } from "/js/core/utils.js";
 import { askLLM } from "/js/services/api.service.js";
 import { createPlayerService } from "/js/services/player.service.js";
 import { createSTTService } from "/js/services/stt.service.js";
+import { createShareService } from "/js/services/share.service.js";
 import { renderQA } from "/js/ui/qa.view.js";
 import { createModal } from "/js/ui/modal.view.js";
-// share.service.js는 현재 UI에 버튼이 없어서(qa.html에 없음) 여기선 연결만 준비
 
 (function () {
   "use strict";
 
-  // --------------------------
-  // DOM
-  // --------------------------
   const $ = (id) => document.getElementById(id);
 
   const playOverlay = $("playOverlay");
@@ -33,8 +31,7 @@ import { createModal } from "/js/ui/modal.view.js";
   const providerLabel = $("providerLabel");
 
   const resetWrap = $("resetWrap");
-  const resetBtn = $("resetBtn"); // UI는 있는데 resetModal은 여기선 미사용(원하시면 붙여드림)
-
+  const resetBtn = $("resetBtn");
   const toTopBtn = $("toTopBtn");
 
   // answer modal
@@ -47,6 +44,18 @@ import { createModal } from "/js/ui/modal.view.js";
   const answerModalApi = createModal(answerModal, answerModalBody);
 
   // --------------------------
+  // Kakao key (여기서 설정)
+  // --------------------------
+  // ✅ 1) 가장 쉬운 방법: qa.html <body data-kakao-key="YOUR_KEY">
+  // ✅ 2) 또는 localStorage "AIQOO_KAKAO_KEY"
+  const kakaoKey =
+    document.body?.dataset?.kakaoKey ||
+    localStorage.getItem("AIQOO_KAKAO_KEY") ||
+    "";
+
+  const share = createShareService(kakaoKey);
+
+  // --------------------------
   // State
   // --------------------------
   const player = createPlayerService();
@@ -55,12 +64,10 @@ import { createModal } from "/js/ui/modal.view.js";
   let youtubeId = "";
   let videoUrl = "";
   let videoKey = "default";
-
-  let isPlaying = false; // 부모가 알려주는 재생 상태
+  let isPlaying = false;
 
   const store = createLectureStore(() => videoKey);
-
-  let items = store.load(); // [{question, answer, t, tLabel, createdAt, ...}]
+  let items = store.load();
 
   // --------------------------
   // Helpers
@@ -90,18 +97,12 @@ import { createModal } from "/js/ui/modal.view.js";
   }
 
   function render() {
-    // 빈 상태
     if (qaEmpty) qaEmpty.classList.toggle("hidden", items.length !== 0);
-
-    // 목록 렌더(단순 렌더)
     renderQA(qaList, items);
-
-    // reset 버튼 노출
     if (resetWrap) resetWrap.classList.toggle("hidden", items.length === 0);
 
-    // TOP 버튼: 스크롤 있을 때만(간단 기준)
-    if (toTopBtn) {
-      const need = qaList && qaList.scrollHeight > qaList.clientHeight + 10;
+    if (toTopBtn && qaList) {
+      const need = qaList.scrollHeight > qaList.clientHeight + 10;
       toTopBtn.classList.toggle("hidden", !need);
     }
   }
@@ -121,9 +122,33 @@ import { createModal } from "/js/ui/modal.view.js";
     render();
   }
 
-  function getLastAnswerText() {
-    const last = items[items.length - 1];
-    return last?.answer || "";
+  function getItemByIndex(index) {
+    const i = Number(index);
+    if (!Number.isFinite(i) || i < 0 || i >= items.length) return null;
+    return items[i];
+  }
+
+  function getParentUrlSafe() {
+    try {
+      return window.parent?.location?.href || window.location.href;
+    } catch {
+      return window.location.href;
+    }
+  }
+
+  function makeShareText(item) {
+    const head = `AIQOO Q&A (${item.tLabel || "00:00"})`;
+    const q = normalizeText(item.question || "");
+    const a = normalizeText(item.answer || "");
+    // 카톡은 너무 길면 전송이 불안정할 수 있어 요약
+    return `${head}\n\nQ) ${snippet(q, 140)}\n\nA) ${snippet(a, 220)}`;
+  }
+
+  function makeMailBody(item) {
+    const url = getParentUrlSafe();
+    const q = normalizeText(item.question || "");
+    const a = normalizeText(item.answer || "");
+    return `AIQOO Q&A 공유\n\n- 시각: ${item.tLabel || "00:00"}\n- 생성: ${item.createdAt || ""}\n- 영상키: ${videoKey}\n- 링크: ${url}\n\n[Q]\n${q}\n\n[A]\n${a}\n`;
   }
 
   // --------------------------
@@ -137,7 +162,6 @@ import { createModal } from "/js/ui/modal.view.js";
       youtubeId = msg.youtubeId || "";
       syncLabels();
 
-      // videoKey가 바뀌면 강의별 저장 로딩
       items = store.load();
       render();
       return;
@@ -145,7 +169,6 @@ import { createModal } from "/js/ui/modal.view.js";
 
     if (msg.type === "videoPlaying") {
       isPlaying = true;
-      // 재생 중이면 잠금 + 오버레이 표시
       setInputsEnabled(false);
       setOverlayVisible(true);
       return;
@@ -153,26 +176,22 @@ import { createModal } from "/js/ui/modal.view.js";
 
     if (msg.type === "videoPaused") {
       isPlaying = false;
-      // 일시정지면 질문 가능
       setOverlayVisible(false);
       setInputsEnabled(true);
       return;
     }
-
-    // timeInfo는 requestTime에 대한 응답이므로 여기서 직접 처리할 필요는 없음
   });
 
-  // 부모에게 준비 완료 신호
   window.parent.postMessage({ type: "qaReady" }, "*");
 
   // --------------------------
-  // Overlay: 클릭하면 부모에 "qaFocus" 보내서 pause 유도
+  // Overlay
   // --------------------------
   if (overlayBtn) {
     overlayBtn.addEventListener("click", () => {
-      player.notifyPause();          // 부모가 pause 처리
-      setOverlayVisible(false);      // UX 즉시 반영
-      setInputsEnabled(true);        // UX 즉시 반영
+      player.notifyPause();
+      setOverlayVisible(false);
+      setInputsEnabled(true);
       setTimeout(() => questionInput?.focus(), 0);
     });
   }
@@ -201,20 +220,40 @@ import { createModal } from "/js/ui/modal.view.js";
   }
 
   // --------------------------
-  // Answer modal (현재 renderQA가 단순 텍스트라, “A 클릭 시 확대”는 여기서 간단히 구현)
-  // - qa.view.js를 고도화하면 더 깔끔해집니다.
+  // ✅ Q&A item action buttons (zoom/kakao/mail)
   // --------------------------
   if (qaList) {
-    qaList.addEventListener("dblclick", (e) => {
-      // 더블클릭 시 마지막 답변을 크게보기로 (간단 동작)
-      const ans = getLastAnswerText();
-      if (!ans) return;
-      if (answerModalMeta) {
-        const last = items[items.length - 1];
-        answerModalMeta.textContent = `${last?.createdAt || ""} · ${last?.tLabel || "00:00"} · ${last?.provider || ""}`;
+    qaList.addEventListener("click", async (e) => {
+      const btn = e.target?.closest?.("button[data-action]");
+      if (!btn) return;
+
+      const action = btn.getAttribute("data-action");
+      const index = btn.getAttribute("data-index");
+      const item = getItemByIndex(index);
+      if (!item) return;
+
+      if (action === "zoom") {
+        if (answerModalMeta) {
+          answerModalMeta.textContent = `${item.createdAt || ""} · ${item.tLabel || "00:00"} · ${item.provider || ""}`;
+        }
+        document.documentElement.classList.add("qa-modal-open");
+        answerModalApi.open(item.answer || "");
+        return;
       }
-      document.documentElement.classList.add("qa-modal-open");
-      answerModalApi.open(ans);
+
+      if (action === "kakao") {
+        const link = getParentUrlSafe();
+        const text = makeShareText(item);
+        await share.shareKakao(text, link);
+        return;
+      }
+
+      if (action === "mail") {
+        const subject = `AIQOO Q&A 공유 (${item.tLabel || "00:00"})`;
+        const body = makeMailBody(item);
+        share.shareMail(subject, body);
+        return;
+      }
     });
   }
 
@@ -259,7 +298,6 @@ import { createModal } from "/js/ui/modal.view.js";
 
     voiceBtn.addEventListener("click", async () => {
       if (isPlaying) {
-        // 재생 중이면 먼저 멈추게 유도
         player.notifyPause();
         return;
       }
@@ -269,7 +307,7 @@ import { createModal } from "/js/ui/modal.view.js";
         voiceBtn.textContent = "⏹️ 녹음 종료";
         try {
           await stt.start();
-        } catch (e) {
+        } catch {
           recording = false;
           voiceBtn.textContent = "🎤 음성 질문";
           setVoiceStatus("❗ 마이크 권한 또는 녹음 시작 실패");
@@ -277,9 +315,7 @@ import { createModal } from "/js/ui/modal.view.js";
       } else {
         recording = false;
         voiceBtn.textContent = "🎤 음성 질문";
-        try {
-          stt.stop();
-        } catch (_) {}
+        try { stt.stop(); } catch {}
       }
     });
   }
@@ -302,7 +338,7 @@ import { createModal } from "/js/ui/modal.view.js";
 
     let timeInfo;
     try {
-      timeInfo = await player.requestTime(); // 부모에서 현재 시각 가져오기
+      timeInfo = await player.requestTime();
     } catch {
       timeInfo = { t: 0, tLabel: "00:00", provider, youtubeId };
     }
@@ -329,9 +365,8 @@ import { createModal } from "/js/ui/modal.view.js";
     }
   }
 
-  if (submitBtn) {
-    submitBtn.addEventListener("click", submitQuestion);
-  }
+  if (submitBtn) submitBtn.addEventListener("click", submitQuestion);
+
   if (questionInput) {
     questionInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -341,7 +376,6 @@ import { createModal } from "/js/ui/modal.view.js";
     });
   }
 
-  // reset(간단 버전: confirm 없이 즉시 삭제) - 원하시면 resetModal과 연결해드릴게요.
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
       if (!confirm("현재 강의의 Q&A를 모두 삭제할까요?")) return;
@@ -351,13 +385,8 @@ import { createModal } from "/js/ui/modal.view.js";
     });
   }
 
-  // --------------------------
-  // Init UI state
-  // --------------------------
+  // init
   syncLabels();
-
-  // 최초에는 “paused”로 가정하면 안 되고, 부모가 videoPlaying/videoPaused를 반드시 보내줘야 함.
-  // 다만 UX 안전장치로: 입력은 잠시 비활성 -> 부모 상태 오면 갱신.
   setInputsEnabled(false);
   setOverlayVisible(false);
   render();
