@@ -4,9 +4,8 @@ import { escapeHtml, snippet } from "/js/core/utils.js";
 export function renderQA(container, items) {
   container.innerHTML = "";
 
-  // 최신이 위로
+  // 최신 항목이 위로
   items.slice().reverse().forEach((item, idxFromTop) => {
-    // items.reverse()를 썼으므로, 실제 원본 인덱스는:
     const originalIndex = items.length - 1 - idxFromTop;
 
     const q = escapeHtml(item.question || "");
