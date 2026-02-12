@@ -1,7 +1,4 @@
-// qa.js (오버레이: 재생 중 중앙 모달 + 클릭하면 pause 요청 + paused 오면 활성화)
-// + Hybrid STT:
-//   - 실시간 표시(보조): Web Speech API (interim -> textarea)  ✅ 자동 재시작 + 충돌 시 자동 폴백
-//   - 최종 확정(핵심): /api/stt (서버에서 gpt-4o-transcribe 전사 + (옵션) gpt-5.x 정제)
+// qa.js
 const API_BASE = "https://aiqa-capstone.onrender.com";
 
 (function () {
@@ -22,12 +19,12 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   const chipButtons = chipsWrap ? Array.from(chipsWrap.querySelectorAll('button[data-example]')) : [];
   const toTopBtn = document.getElementById('toTopBtn');
 
-  // ✅ 오버레이 요소
+  // ✅ 재생 중 오버레이
   const playOverlay = document.getElementById('playOverlay');
   const overlayBtn = document.getElementById('overlayBtn');
   const overlaySub = document.getElementById('overlaySub');
 
-  // ✅ 답변 크게보기 모달 요소 (qa.html에 존재하면 동작)
+  // ✅ 답변 크게보기 모달(qa.html에 존재해야 함)
   const answerModal = document.getElementById('answerModal');
   const answerCloseBtn = document.getElementById('answerCloseBtn');
   const answerCopyBtn = document.getElementById('answerCopyBtn');
@@ -64,10 +61,9 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   let realtimeBaseText = "";          // 음성 시작 당시 textarea의 기존 텍스트
   let realtimeFinal = "";             // WebSpeech final 누적
   let realtimeInterim = "";           // WebSpeech interim
-  let sttFinalText = "";              // /api/stt 최종 결과(정제 포함 가능)
 
   // ✅ 실시간 전사 안정화 (자동 재시작 + 폴백)
-  let realtimeWanted = false;         // 사용자가 “실시간 전사”를 원하는 상태인지
+  let realtimeWanted = false;
   let realtimeRestartTimer = null;
 
   // 이벤트 중복 바인딩 방지
@@ -106,7 +102,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   }
 
   // =========================
-  // ✅ 답변 크게보기 모달 제어
+  // ✅ 답변 크게보기 모달
   // =========================
   function openAnswerModal({ metaLine, question, answer }) {
     if (!answerModal || !answerModalBody) return;
@@ -114,6 +110,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
     lastFocusedEl = document.activeElement;
     modalAnswerText = (answer || '');
 
+    // 텍스트 주입
     answerModalBody.textContent = modalAnswerText;
 
     if (answerModalMeta) {
@@ -123,17 +120,28 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
       answerModalMeta.textContent = parts.join(' · ');
     }
 
+    // 열기
     answerModal.classList.remove('hidden');
+    answerModal.classList.add('flex');
     answerModal.setAttribute('aria-hidden', 'false');
 
+    // 스크롤 top + 포커스
     try { answerModalBody.scrollTop = 0; } catch (_) {}
     try { (answerCloseBtn || answerModal).focus(); } catch (_) {}
+
+    // 배경 스크롤 잠금(qaList 스크롤도 방지)
+    document.documentElement.classList.add('qa-modal-open');
+    document.body.classList.add('qa-modal-open');
   }
 
   function closeAnswerModal() {
     if (!answerModal) return;
     answerModal.classList.add('hidden');
+    answerModal.classList.remove('flex');
     answerModal.setAttribute('aria-hidden', 'true');
+
+    document.documentElement.classList.remove('qa-modal-open');
+    document.body.classList.remove('qa-modal-open');
 
     try { lastFocusedEl && lastFocusedEl.focus && lastFocusedEl.focus(); } catch (_) {}
     lastFocusedEl = null;
@@ -171,15 +179,15 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   }
 
   if (answerCloseBtn) answerCloseBtn.addEventListener('click', closeAnswerModal);
+  if (answerCopyBtn) answerCopyBtn.addEventListener('click', copyModalAnswer);
 
+  // dim 클릭 닫기: data-close="1" 영역
   if (answerModal) {
     answerModal.addEventListener('click', (e) => {
       const t = e.target;
       if (t && t.getAttribute && t.getAttribute('data-close') === '1') closeAnswerModal();
     });
   }
-
-  if (answerCopyBtn) answerCopyBtn.addEventListener('click', copyModalAnswer);
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && isAnswerModalOpen()) {
@@ -264,6 +272,9 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
     }
   }
 
+  // =========================
+  // ✅ render(): 버튼을 “답변 상단”에 배치
+  // =========================
   function render() {
     videoKeyLabel.textContent = videoKey || 'default';
     providerLabel.textContent = provider === 'youtube' ? ('YouTube · ' + (youtubeId || '')) : 'Native';
@@ -279,37 +290,39 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
       const div = document.createElement('div');
       div.className = 'qa-item mb-3.5 overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.03]';
 
-      let answerHtml = '';
+      // 답변 영역 구성 (스크롤 없음: qaList만 스크롤)
+      let answerBlock = '';
       if (item.answer) {
-        answerHtml =
+        answerBlock =
           '<div class="border-t border-white/[0.05] bg-black/20 px-3.5 py-3">' +
-            '<div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">답변 (LLM)</div>' +
-            // ✅ 변경: 답변 박스 내부 스크롤 제거 (qaList가 스크롤 담당)
+            // ✅ 상단 헤더 (버튼을 여기로)
+            '<div class="mb-2 flex items-center justify-between gap-2">' +
+              '<div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">답변 (LLM)</div>' +
+              '<button type="button" class="qa-answer-zoombtn" data-action="answerZoom" data-idx="' + String(originalIndex) + '">' +
+                '답변 크게보기' +
+              '</button>' +
+            '</div>' +
+            // ✅ 본문 (높이 제한/내부 스크롤 제거)
             '<div class="overflow-x-hidden text-[13px] leading-relaxed text-zinc-300 whitespace-pre-wrap">' +
               escapeHtml(item.answer) +
             '</div>' +
-            '<div class="mt-3 flex justify-end">' +
-              '<button type="button" class="qa-answer-zoombtn" data-action="answerZoom" data-idx="' + String(originalIndex) + '">' +
-                '답변크게보기' +
-              '</button>' +
-            '</div>' +
           '</div>';
       } else if (item.error) {
-        answerHtml =
+        answerBlock =
           '<div class="border-t border-white/[0.05] bg-black/20 px-3.5 py-3">' +
-            '<div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">답변</div>' +
-            '<div class="text-[13px] leading-normal text-red-400 whitespace-pre-wrap">' + escapeHtml(item.error) + '</div>' +
-            '<div class="mt-3 flex justify-end">' +
+            '<div class="mb-2 flex items-center justify-between gap-2">' +
+              '<div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">답변</div>' +
               '<button type="button" class="qa-answer-zoombtn" data-action="answerZoomError" data-idx="' + String(originalIndex) + '">' +
-                '답변크게보기' +
+                '답변 크게보기' +
               '</button>' +
             '</div>' +
+            '<div class="text-[13px] leading-normal text-red-400 whitespace-pre-wrap">' + escapeHtml(item.error) + '</div>' +
           '</div>';
       } else {
-        answerHtml =
+        answerBlock =
           '<div class="border-t border-white/[0.05] bg-black/20 px-3.5 py-3">' +
-            '<div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">답변</div>' +
-            '<div class="text-[13px] italic text-zinc-500">답변 생성 중...</div>' +
+            '<div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">답변</div>' +
+            '<div class="mt-2 text-[13px] italic text-zinc-500">답변 생성 중...</div>' +
           '</div>';
       }
 
@@ -319,7 +332,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
           (item.time || '') +
         '</div>' +
         '<div class="px-3.5 pb-3.5 text-sm leading-relaxed text-zinc-200 whitespace-pre-wrap">' + escapeHtml(item.question) + '</div>' +
-        answerHtml;
+        answerBlock;
 
       qaList.appendChild(div);
     });
@@ -331,10 +344,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   function setQuestionUIEnabled(enabled) {
     questionInput.disabled = !enabled;
     submitBtn.disabled = !enabled;
-
-    // ✅ 음성 버튼은 질문 가능 상태에서만 활성화
     voiceBtn.disabled = !enabled;
-
     questionInput.placeholder = enabled ? '이 강의에 대해 질문을 입력하세요...' : '영상이 멈추면 질문할 수 있습니다.';
     syncQAUI();
   }
@@ -460,7 +470,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   }
 
   // =========================
-  // ✅ Hybrid: 실시간 표시(Web Speech) - 안정화 버전
+  // ✅ Hybrid: 실시간 표시(Web Speech) - 안정화
   // =========================
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const realtimeRec = SpeechRecognition ? new SpeechRecognition() : null;
@@ -528,10 +538,8 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
         err === 'no-speech' ? '음성이 감지되지 않았습니다.' :
         ('실시간 인식 오류: ' + err);
 
-      // 권한/정책 이슈는 재시작해도 소용 없음
       if (err === 'not-allowed' || err === 'service-not-allowed') return;
 
-      // 기타 오류는 원하면 재시작 시도
       if (realtimeWanted && isRecording) {
         clearTimeout(realtimeRestartTimer);
         realtimeRestartTimer = setTimeout(() => {
@@ -545,7 +553,6 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
       realtimeInterim = '';
       applyRealtimeTextToTextarea();
 
-      // ✅ 녹음 중이고 실시간을 원하면 자동 재시작
       if (realtimeWanted && isRecording) {
         clearTimeout(realtimeRestartTimer);
         realtimeRestartTimer = setTimeout(() => {
@@ -576,7 +583,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   }
 
   // =========================
-  // ✅ Hybrid: 최종 확정(/api/stt)
+  // ✅ /api/stt 고품질 전사
   // =========================
   let mediaRecorder = null;
   let chunks = [];
@@ -645,13 +652,11 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
       return;
     }
 
-    // 1) 실시간 표시(WebSpeech) 시작(가능하면)
     const realtimeOk = startRealtimeSpeech();
     if (!realtimeOk) {
       voiceStatus.textContent = '🎙 음성 입력 중... (실시간 표시는 브라우저 미지원)';
     }
 
-    // 2) /api/stt 용 녹음 시작
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     const preferredTypes = [
@@ -694,8 +699,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
           return;
         }
 
-        sttFinalText = result.text;
-        replaceLiveTextWithSTT(sttFinalText);
+        replaceLiveTextWithSTT(result.text);
 
         const modelLabel = result.model ? `(${result.model})` : '';
         const cleanLabel = (result.cleaned && result.cleanModel) ? ` + clean:${result.cleanModel}` : '';
@@ -755,7 +759,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   }
 
   // =========================
-  // ✅ “답변크게보기” 클릭 처리 (이벤트 위임)
+  // ✅ “답변 크게보기” 클릭 처리 (이벤트 위임)
   // =========================
   if (qaList && !boundQaListDelegate) {
     qaList.addEventListener('click', (e) => {
@@ -819,7 +823,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
     notifyParentPause();
   });
 
-  // ✅ 음성 버튼: “실시간 표시(보조) + 최종 /api/stt(핵심)” 토글
+  // ✅ 음성 버튼 토글
   voiceBtn.addEventListener('click', async function () {
     if (voiceBtn.disabled) return;
 

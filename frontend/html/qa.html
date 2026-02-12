@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>:: AIQOO - 인공지능 Q&A ::</title>
+  <title>AIQOO :: AI Q&A with LLM</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="../css/qa.css" />
@@ -18,7 +18,7 @@
     <button type="button" id="overlayBtn" class="qa-overlay-card" aria-label="질문 시작">
       <div class="qa-overlay-badge">LIVE</div>
 
-      <div class="qa-overlay-title">:: AIQOO - 인공지능 Q&A ::</div>
+      <div class="qa-overlay-title">:: 인공지능 Q&A - AIQOO ::</div>
 
       <div class="qa-overlay-desc">
         영상 재생 중에는 질문 입력이 잠겨 있습니다.<br />
@@ -27,6 +27,28 @@
 
       <div class="qa-overlay-cta" id="overlaySub">🏃 질문 시작하기 (영상 멈춤)</div>
     </button>
+  </div>
+
+  <!-- ✅ 답변 크게보기 모달 (전체화면) -->
+  <div id="answerModal" class="hidden" aria-hidden="true">
+    <!-- dim 클릭 닫기 -->
+    <div data-close="1" class="qa-answer-modal-dim"></div>
+
+    <div class="qa-answer-modal-card" role="dialog" aria-modal="true" aria-label="답변 크게보기">
+      <div class="qa-answer-modal-header">
+        <div class="min-w-0">
+          <div class="qa-answer-modal-title">답변 크게보기</div>
+          <div id="answerModalMeta" class="qa-answer-modal-meta"></div>
+        </div>
+
+        <div class="qa-answer-modal-actions">
+          <button type="button" id="answerCopyBtn" class="qa-answer-zoombtn">복사</button>
+          <button type="button" id="answerCloseBtn" class="qa-answer-zoombtn">닫기</button>
+        </div>
+      </div>
+
+      <div id="answerModalBody"></div>
+    </div>
   </div>
 
   <!-- 툴바 -->
@@ -87,25 +109,6 @@
     </div>
   </div>
 
-  <!-- ✅ 답변 크게보기 모달 (NEW) -->
-  <div id="answerModal" class="qa-answer-modal hidden" aria-hidden="true">
-    <div class="qa-answer-dim" data-close="1"></div>
-
-    <div class="qa-answer-card" role="dialog" aria-modal="true" aria-labelledby="answerModalTitle">
-      <div class="qa-answer-header">
-        <div class="qa-answer-title" id="answerModalTitle">답변 크게보기</div>
-        <div class="qa-answer-actions">
-          <button type="button" id="answerCopyBtn" class="qa-answer-iconbtn" title="복사" aria-label="답변 복사">📋</button>
-          <button type="button" id="answerCloseBtn" class="qa-answer-iconbtn" title="닫기" aria-label="닫기">✕</button>
-        </div>
-      </div>
-
-      <div class="qa-answer-meta" id="answerModalMeta"></div>
-
-      <div class="qa-answer-body" id="answerModalBody"></div>
-    </div>
-  </div>
-
   <!-- 초기화 확인 모달 -->
   <div class="fixed inset-0 z-[1000] hidden items-center justify-center bg-black/60 p-4" id="resetModal" aria-hidden="true">
     <div class="w-full max-w-[320px] rounded-xl border border-white/10 bg-zinc-800 p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="resetModalTitle">
@@ -118,6 +121,7 @@
     </div>
   </div>
 
+  <!-- TOP 버튼 -->
   <button type="button" id="toTopBtn" class="qa-top hidden" aria-label="맨 위로" title="맨 위로">
     ⬆ TOP
   </button>

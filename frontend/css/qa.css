@@ -1,329 +1,305 @@
 /* =========================
    질문 예시 칩
    ========================= */
-.qa-chip {
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(244, 244, 245, 0.85);
-  border-radius: 9999px;
-  padding: 6px 10px;
-  font-size: 12px;
-  line-height: 1;
-  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, opacity 120ms ease;
-}
-.qa-chip:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.18);
-  transform: translateY(-1px);
-}
-.qa-chip:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* =========================
-   강의 미재생 상태 안내 애니메이션
-   ========================= */
-.aiqa-hint-pulse {
-  animation: aiqaHintPulse 1.4s ease-in-out infinite;
-}
-@keyframes aiqaHintPulse {
-  0%   { opacity: .55; text-shadow: 0 0 0 rgba(99,102,241,0); }
-  50%  { opacity: 1;   text-shadow: 0 0 14px rgba(99,102,241,.35); }
-  100% { opacity: .55; text-shadow: 0 0 0 rgba(99,102,241,0); }
-}
-
-/* =========================
-   ✅ Q&A 재생중 오버레이(모달)
-   - fixed ❌  → absolute ✅ : iframe 영역 내부만 덮음
-   ========================= */
-.qa-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 9999;
-  display: grid;
-  place-items: center;
-  padding: 18px;
-}
-
-.qa-overlay-dim {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.62);
-  backdrop-filter: blur(6px);
-}
-
-.qa-overlay-card {
-  position: relative;
-  width: min(340px, calc(100% - 32px));
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background:
-    radial-gradient(120% 120% at 50% 0%,
-      rgba(99,102,241,0.34) 0%,
-      rgba(255,255,255,0.06) 36%,
-      rgba(0,0,0,0.42) 100%);
-  box-shadow:
-    0 28px 80px rgba(0,0,0,0.65),
-    0 0 0 1px rgba(255,255,255,0.04) inset;
-  padding: 18px 18px 16px;
-  text-align: center;
-  transform-origin: center;
-  animation: qaOverlayIn 180ms ease-out;
-  cursor: pointer;
-  user-select: none;
-}
-
-@keyframes qaOverlayIn {
-  from { opacity: 0; transform: translateY(6px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.qa-overlay-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255,255,255,0.18);
-}
-
-.qa-overlay-card:active {
-  transform: translateY(0px) scale(0.99);
-}
-
-.qa-overlay-card:disabled {
-  opacity: 0.72;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.qa-overlay-badge {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  color: rgba(255,255,255,0.92);
-  background: rgba(239, 68, 68, 0.18);
-  border: 1px solid rgba(239, 68, 68, 0.28);
-  box-shadow: 0 0 18px rgba(239,68,68,0.12);
-}
-
-.qa-overlay-title {
-  margin-top: 10px;
-  font-size: 15px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  color: rgba(244,244,245,0.96);
-  text-shadow: 0 0 18px rgba(99,102,241,0.30);
-}
-
-.qa-overlay-desc {
-  margin-top: 10px;
-  font-size: 12px;
-  line-height: 1.55;
-  color: rgba(161,161,170,0.95);
-}
-
-.qa-overlay-cta {
-  margin-top: 14px;
-  border-radius: 12px;
-  padding: 10px 12px;
-  font-size: 13px;
-  font-weight: 800;
-  color: rgba(255,255,255,0.95);
-  background: rgba(99,102,241,0.28);
-  border: 1px solid rgba(99,102,241,0.35);
-  box-shadow: 0 10px 24px rgba(99,102,241,0.15);
-}
-
-/* ==============================
-   ✅ iframe 내부 스크롤 안정화
-   ============================== */
-   html, body { height: 100%; }
-
-   /* qaList는 이미 Tailwind로 overflow-y-auto지만,
-      iframe 내부에서 높이 계산이 꼬이는 경우를 방지 */
-   #qaList { min-height: 0; }
-   
-   /* ==============================
-      ✅ TOP 버튼 (우하단)
-      ============================== */
-   .qa-top{
-     position: fixed;
-     right: 14px;
-     bottom: 14px;
-     z-index: 1200;
-     padding: 10px 12px;
-     border-radius: 9999px;
-     border: 1px solid rgba(255,255,255,0.15);
-     background: rgba(15,15,18,0.80);
-     color: rgba(255,255,255,0.92);
-     font-size: 12px;
-     font-weight: 800;
-     letter-spacing: .02em;
-     backdrop-filter: blur(10px);
-     -webkit-backdrop-filter: blur(10px);
-     box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-     transition: transform .15s ease, opacity .15s ease, border-color .15s ease;
-   }
-   
-   .qa-top:hover{
-     transform: translateY(-2px);
-     border-color: rgba(255,255,255,0.25);
-   }
-   
-   .qa-top:active{
-     transform: translateY(0px);
-   }
-   
-   .qa-top.hidden{
-     display: none;
-   }
-
-   /* ==============================
-   ✅ 답변크게보기 버튼 (NEW)
-   ============================== */
-.qa-answer-zoombtn {
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.04);
-  color: rgba(244,244,245,0.92);
-  border-radius: 9999px;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: .02em;
-  transition: transform .15s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
-}
-
-.qa-answer-zoombtn:hover {
-  background: rgba(99,102,241,0.18);
-  border-color: rgba(99,102,241,0.32);
-  transform: translateY(-1px);
-}
-
-.qa-answer-zoombtn:active {
-  transform: translateY(0px) scale(0.99);
-}
-
-/* ==============================
-   ✅ 답변 크게보기 모달 (NEW)
-   - iframe 내부 중앙 모달
-   ============================== */
-.qa-answer-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: grid;
-  place-items: center;
-  padding: 18px;
-}
-
-.qa-answer-modal.hidden {
-  display: none;
-}
-
-.qa-answer-dim {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.70);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-.qa-answer-card {
-  position: relative;
-  width: min(920px, calc(100% - 28px));
-  max-height: min(80vh, 720px);
-  overflow: hidden;
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background:
-    radial-gradient(120% 140% at 50% 0%,
-      rgba(99,102,241,0.30) 0%,
-      rgba(255,255,255,0.06) 38%,
-      rgba(0,0,0,0.55) 100%);
-  box-shadow:
-    0 36px 110px rgba(0,0,0,0.75),
-    0 0 0 1px rgba(255,255,255,0.05) inset;
-  animation: qaAnswerModalIn 160ms ease-out;
-}
-
-@keyframes qaAnswerModalIn {
-  from { opacity: 0; transform: translateY(10px) scale(0.985); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.qa-answer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 14px 14px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.10);
-}
-
-.qa-answer-title {
-  font-size: 14px;
-  font-weight: 900;
-  color: rgba(244,244,245,0.95);
-  letter-spacing: .04em;
-}
-
-.qa-answer-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.qa-answer-iconbtn {
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.04);
-  color: rgba(244,244,245,0.92);
-  border-radius: 12px;
-  padding: 8px 10px;
-  font-size: 12px;
-  font-weight: 900;
-  cursor: pointer;
-  transition: transform .15s ease, background .15s ease, border-color .15s ease;
-}
-
-.qa-answer-iconbtn:hover {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.22);
-  transform: translateY(-1px);
-}
-
-.qa-answer-iconbtn:active {
-  transform: translateY(0px) scale(0.99);
-}
-
-.qa-answer-meta {
-  padding: 10px 14px 0;
-  font-size: 11px;
-  line-height: 1.4;
-  color: rgba(161,161,170,0.92);
-}
-
-.qa-answer-body {
-  padding: 12px 14px 16px;
-  overflow: auto;
-  max-height: calc(min(80vh, 720px) - 92px);
-  font-size: 14px;
-  line-height: 1.75;
-  color: rgba(228,228,231,0.92);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.qa-answer-body::-webkit-scrollbar {
-  width: 10px;
-}
-.qa-answer-body::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.14);
-  border-radius: 9999px;
-}
-.qa-answer-body::-webkit-scrollbar-track {
-  background: rgba(255,255,255,0.05);
-}
-
-   
- 
+   .qa-chip {
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(244, 244, 245, 0.85);
+    border-radius: 9999px;
+    padding: 6px 10px;
+    font-size: 12px;
+    line-height: 1;
+    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, opacity 120ms ease;
+  }
+  .qa-chip:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.18);
+    transform: translateY(-1px);
+  }
+  .qa-chip:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  /* =========================
+     강의 미재생 상태 안내 애니메이션
+     ========================= */
+  .aiqa-hint-pulse {
+    animation: aiqaHintPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes aiqaHintPulse {
+    0%   { opacity: .55; text-shadow: 0 0 0 rgba(99,102,241,0); }
+    50%  { opacity: 1;   text-shadow: 0 0 14px rgba(99,102,241,.35); }
+    100% { opacity: .55; text-shadow: 0 0 0 rgba(99,102,241,0); }
+  }
+  
+  /* =========================
+     ✅ Q&A 재생중 오버레이(모달)
+     - fixed ❌  → absolute ✅ : iframe 영역 내부만 덮음
+     ========================= */
+  .qa-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 9999;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+  }
+  
+  .qa-overlay-dim {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.62);
+    backdrop-filter: blur(6px);
+  }
+  
+  .qa-overlay-card {
+    position: relative;
+    width: min(340px, calc(100% - 32px));
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background:
+      radial-gradient(120% 120% at 50% 0%,
+        rgba(99,102,241,0.34) 0%,
+        rgba(255,255,255,0.06) 36%,
+        rgba(0,0,0,0.42) 100%);
+    box-shadow:
+      0 28px 80px rgba(0,0,0,0.65),
+      0 0 0 1px rgba(255,255,255,0.04) inset;
+    padding: 18px 18px 16px;
+    text-align: center;
+    transform-origin: center;
+    animation: qaOverlayIn 180ms ease-out;
+    cursor: pointer;
+    user-select: none;
+  }
+  
+  @keyframes qaOverlayIn {
+    from { opacity: 0; transform: translateY(6px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  
+  .qa-overlay-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255,255,255,0.18);
+  }
+  
+  .qa-overlay-card:active {
+    transform: translateY(0px) scale(0.99);
+  }
+  
+  .qa-overlay-card:disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .qa-overlay-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: rgba(255,255,255,0.92);
+    background: rgba(239, 68, 68, 0.18);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    box-shadow: 0 0 18px rgba(239,68,68,0.12);
+  }
+  
+  .qa-overlay-title {
+    margin-top: 10px;
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    color: rgba(244,244,245,0.96);
+    text-shadow: 0 0 18px rgba(99,102,241,0.30);
+  }
+  
+  .qa-overlay-desc {
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.55;
+    color: rgba(161,161,170,0.95);
+  }
+  
+  .qa-overlay-cta {
+    margin-top: 14px;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 800;
+    color: rgba(255,255,255,0.95);
+    background: rgba(99,102,241,0.28);
+    border: 1px solid rgba(99,102,241,0.35);
+    box-shadow: 0 10px 24px rgba(99,102,241,0.15);
+  }
+  
+  /* ==============================
+     ✅ iframe 내부 스크롤 안정화
+     ============================== */
+  html, body { height: 100%; }
+  
+  #qaList { min-height: 0; }
+  
+  /* ==============================
+     ✅ TOP 버튼 (우하단)
+     ============================== */
+  .qa-top{
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    z-index: 1200;
+    padding: 10px 12px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(15,15,18,0.80);
+    color: rgba(255,255,255,0.92);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .02em;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    transition: transform .15s ease, opacity .15s ease, border-color .15s ease;
+  }
+  
+  .qa-top:hover{
+    transform: translateY(-2px);
+    border-color: rgba(255,255,255,0.25);
+  }
+  
+  .qa-top:active{
+    transform: translateY(0px);
+  }
+  
+  .qa-top.hidden{
+    display: none;
+  }
+  
+  /* ==============================
+     ✅ 답변 크게보기 버튼 (답변 상단 헤더에서 사용)
+     ============================== */
+  .qa-answer-zoombtn {
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.06);
+    color: rgba(244,244,245,0.92);
+    font-size: 11px;
+    font-weight: 800;
+    padding: 6px 10px;
+    border-radius: 9999px;
+    transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    user-select: none;
+    white-space: nowrap;
+  }
+  
+  .qa-answer-zoombtn:hover {
+    background: rgba(255,255,255,0.10);
+    border-color: rgba(255,255,255,0.22);
+    transform: translateY(-1px);
+  }
+  
+  .qa-answer-zoombtn:active {
+    transform: translateY(0);
+  }
+  
+  /* ==============================
+     ✅ 답변 크게보기: 브라우저 전체화면 모달
+     - iframe 안에서도 fixed로 화면 전체를 덮음
+     - 폰트 크게
+     ============================== */
+  
+  /* 모달 열렸을 때 배경 스크롤 잠금(js에서 html/body에 class 추가) */
+  .qa-modal-open {
+    overflow: hidden !important;
+  }
+  
+  /* overlay 컨테이너 */
+  #answerModal {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    display: none; /* 기본 숨김, JS에서 flex로 전환 */
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  
+  #answerModal.flex { display: flex; }
+  #answerModal.hidden { display: none; }
+  
+  /* dim */
+  .qa-answer-modal-dim {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.72);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  
+  /* 큰 모달 카드 */
+  .qa-answer-modal-card {
+    position: relative;
+    width: min(980px, 96vw);
+    max-height: min(88vh, 980px);
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(18,18,22,0.96);
+    box-shadow: 0 40px 120px rgba(0,0,0,0.65);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: qaAnswerModalIn 180ms ease-out;
+  }
+  
+  @keyframes qaAnswerModalIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.985); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  
+  /* 헤더 */
+  .qa-answer-modal-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  
+  .qa-answer-modal-title {
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    color: rgba(244,244,245,0.95);
+  }
+  
+  .qa-answer-modal-meta {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: rgba(161,161,170,0.9);
+    word-break: break-word;
+  }
+  
+  /* 액션 버튼 */
+  .qa-answer-modal-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  /* 본문: 여기만 스크롤 */
+  #answerModalBody {
+    padding: 18px 18px 22px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  
+    /* ✅ 폰트 크게 */
+    font-size: 16px;
+    line-height: 1.75;
+    color: rgba(244,244,245,0.92);
+    white-space: pre-wrap;
+  }
+  
