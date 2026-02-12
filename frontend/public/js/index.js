@@ -8,7 +8,10 @@
   const ytPlayerEl = document.getElementById("ytPlayer");
   const placeholder = document.getElementById("videoPlaceholder");
 
-  const qaFrame = document.querySelector('iframe[src="/html/qa.html"]');
+  // ✅ qaFrame은 src 고정 문자열 매칭이 자주 깨지므로, id 우선 + qa.html 포함 iframe fallback
+  const qaFrame =
+    document.getElementById("qaFrame") ||
+    document.querySelector('iframe[src$="qa.html"], iframe[src*="qa.html"]');
 
   function postToQA(msg) {
     if (!qaFrame || !qaFrame.contentWindow) return;
@@ -53,13 +56,17 @@
     return `${mm}:${ss}`;
   }
 
+  // ✅ DOM 없을 때도 안전하게 no-op
   function showPlaceholder(show) {
+    if (!placeholder) return;
     placeholder.classList.toggle("hidden", !show);
   }
   function showNative(show) {
+    if (!nativeVideo) return;
     nativeVideo.classList.toggle("hidden", !show);
   }
   function showYouTube(show) {
+    if (!youtubeWrap) return;
     youtubeWrap.classList.toggle("hidden", !show);
   }
 
@@ -118,19 +125,21 @@
     setTimeout(() => sendPaused(), 0);
   }
 
-  // Native events
-  nativeVideo.addEventListener("play", () => {
-    provider = "native";
-    sendPlaying();
-  });
-  nativeVideo.addEventListener("pause", () => {
-    provider = "native";
-    sendPaused();
-  });
-  nativeVideo.addEventListener("ended", () => {
-    provider = "native";
-    sendPaused();
-  });
+  // ✅ Native events (nativeVideo가 없는 페이지에서도 크래시 방지)
+  if (nativeVideo) {
+    nativeVideo.addEventListener("play", () => {
+      provider = "native";
+      sendPlaying();
+    });
+    nativeVideo.addEventListener("pause", () => {
+      provider = "native";
+      sendPaused();
+    });
+    nativeVideo.addEventListener("ended", () => {
+      provider = "native";
+      sendPaused();
+    });
+  }
 
   // YouTube API safe load
   function loadYouTubeApiOnce() {
@@ -150,6 +159,9 @@
   function createYouTubePlayer() {
     if (!(window.YT && window.YT.Player)) return;
     if (ytPlayer) return;
+
+    // ✅ ytPlayerEl이 없으면 생성 불가(크래시 방지)
+    if (!ytPlayerEl) return;
 
     ytPlayer = new YT.Player(ytPlayerEl, {
       videoId: "",
@@ -195,7 +207,8 @@
       return;
     }
 
-    try { nativeVideo.pause(); } catch (_) {}
+    // nativeVideo가 null이어도 try/catch로 안전
+    try { nativeVideo && nativeVideo.pause(); } catch (_) {}
 
     if (isYouTubeUrl(videoUrl)) {
       provider = "youtube";
@@ -227,21 +240,27 @@
       showYouTube(false);
       showNative(true);
 
-      nativeVideo.src = videoUrl;
-      nativeVideo.load();
+      // ✅ nativeVideo 없으면 여기서도 중단 방지
+      if (nativeVideo) {
+        nativeVideo.src = videoUrl;
+        nativeVideo.load();
+      }
 
       sendVideoInfo();
       setTimeout(() => sendPaused(), 0);
     }
   }
 
-  videoApplyBtn.addEventListener("click", () => applyVideo(videoUrlInput.value || ""));
-  videoUrlInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      applyVideo(videoUrlInput.value || "");
-    }
-  });
+  // ✅ URL 입력 UI가 없는 페이지에서도 크래시 방지
+  if (videoApplyBtn && videoUrlInput) {
+    videoApplyBtn.addEventListener("click", () => applyVideo(videoUrlInput.value || ""));
+    videoUrlInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        applyVideo(videoUrlInput.value || "");
+      }
+    });
+  }
 
   // QA messages
   window.addEventListener("message", (e) => {
@@ -270,6 +289,7 @@
   showNative(false);
   showYouTube(false);
 
-  const initialUrl = (videoUrlInput.value || "").trim();
+  // ✅ videoUrlInput이 없으면 접근하면 안 됨
+  const initialUrl = videoUrlInput ? (videoUrlInput.value || "").trim() : "";
   if (initialUrl) applyVideo(initialUrl);
 })();
