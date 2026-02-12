@@ -8,7 +8,7 @@
   const ytPlayerEl = document.getElementById("ytPlayer");
   const placeholder = document.getElementById("videoPlaceholder");
 
-  const qaFrame = document.querySelector('iframe[src="html/qa.html"]');
+  const qaFrame = document.querySelector('iframe[src="/html/qa.html"]');
 
   function postToQA(msg) {
     if (!qaFrame || !qaFrame.contentWindow) return;

@@ -6,7 +6,7 @@
   <title>AIQOO :: AI Q&A with LLM</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="../css/qa.css" />
+  <link rel="stylesheet" href="/css/qa.css" />
 
   <!-- ✅ Kakao JavaScript SDK (카카오톡 공유용) -->
   <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
@@ -111,23 +111,12 @@
     </div>
   </div>
 
-  <!-- 초기화 확인 모달 -->
-  <div class="fixed inset-0 z-[1000] hidden items-center justify-center bg-black/60 p-4" id="resetModal" aria-hidden="true">
-    <div class="w-full max-w-[320px] rounded-xl border border-white/10 bg-zinc-800 p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="resetModalTitle">
-      <h2 class="mb-2 text-[15px] font-semibold text-zinc-50" id="resetModalTitle">🗑️ 답변 초기화</h2>
-      <p class="mb-5 text-sm leading-normal text-zinc-400">현재 강의(강의키)의 모든 질문과 답변이 삭제됩니다. 진행할까요?</p>
-      <div class="flex gap-2.5 justify-end">
-        <button type="button" class="rounded-lg border border-white/20 bg-transparent px-4 py-2.5 text-sm font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200" id="resetModalCancel">✕ 취소</button>
-        <button type="button" class="rounded-lg border-0 bg-red-500/20 px-4 py-2.5 text-sm font-medium text-red-300 transition hover:bg-red-500/30 hover:text-red-200" id="resetModalConfirm">🗑️ 초기화</button>
-      </div>
-    </div>
-  </div>
-
   <!-- TOP 버튼 -->
   <button type="button" id="toTopBtn" class="qa-top hidden" aria-label="맨 위로" title="맨 위로">
     ⬆ TOP
   </button>
 
-  <script src="../js/qa.js"></script>
+  <!-- ✅ 중요: 모듈로 로드 -->
+  <script type="module" src="/js/qa.js"></script>
 </body>
 </html>
