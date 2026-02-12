@@ -7,7 +7,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
  * - 카카오 디벨로퍼스에서 앱 생성 후 JavaScript 키를 넣어주세요.
  * - 플랫폼(Web) 도메인에 배포 도메인을 등록해야 공유가 됩니다.
  */
-const KAKAO_JS_KEY = "PASTE_YOUR_KAKAO_JAVASCRIPT_KEY_HERE";
+const KAKAO_JS_KEY = "4632c8134c3d32664cbef8f20b497882";
 
 // 카카오 공유에 넣을 대표 이미지(https 필수 권장)
 // 기본: 현재 origin의 /favicon.ico (https가 아닐 경우 빈 값이 될 수 있음)
