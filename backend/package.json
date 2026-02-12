@@ -1,7 +1,7 @@
 {
-  "name": "lecture-qa",
+  "name": "aiqoo",
   "version": "1.0.0",
-  "description": "강의 Q&A with LLM",
+  "description": "aiqoo :: AI Q&A with LLM",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

@@ -56,7 +56,7 @@ const upload = multer({
 // Health
 // =========================
 app.get("/", (req, res) => {
-  res.json({ ok: true, message: "AIQA backend is running" });
+  res.json({ ok: true, message: "AIQOO backend is running" });
 });
 
 // =====================================================
