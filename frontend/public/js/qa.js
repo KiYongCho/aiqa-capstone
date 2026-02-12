@@ -3,14 +3,14 @@
 // - 크게보기(답변 모달) 기능 포함
 // - Enter 전송(Shift+Enter 줄바꿈)
 
-import { createLectureStore } from "./store.js";
-import { normalizeText, formatTime } from "./utils.js";
-import { askLLM } from "./api.service.js";
-import { createPlayerService } from "./player.service.js";
-import { createSTTService } from "./stt.service.js";
-import { createShareService } from "./share.service.js";
-import { renderQA } from "./qa.view.js";
-import { createModal } from "./modal.view.js";
+import { createLectureStore } from "/js/store.js";
+import { normalizeText, formatTime } from "/js/utils.js";
+import { askLLM } from "/js/api.service.js";
+import { createPlayerService } from "/js/player.service.js";
+import { createSTTService } from "/js/stt.service.js";
+import { createShareService } from "/js/share.service.js";
+import { renderQA } from "/js/qa.view.js";
+import { createModal } from "/js/modal.view.js";
 
 (function () {
   "use strict";
