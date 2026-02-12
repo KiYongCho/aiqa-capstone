@@ -7,6 +7,11 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="../css/qa.css" />
+
+  <!-- ✅ Kakao JavaScript SDK (카카오톡 공유용) -->
+  <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
+          integrity="sha384-+w+F7x0gkZb8gYqYv6mB3cR2q4vO9QxjvVg5pFQm2g1i3zqv9kZr2O7p1mOq9p8S"
+          crossorigin="anonymous"></script>
 </head>
 
 <body class="relative flex h-full flex-col overflow-hidden bg-[#0c0c0e] text-zinc-50 antialiased">
@@ -31,7 +36,6 @@
 
   <!-- ✅ 답변 크게보기 모달 (전체화면) -->
   <div id="answerModal" class="hidden" aria-hidden="true">
-    <!-- dim 클릭 닫기 -->
     <div data-close="1" class="qa-answer-modal-dim"></div>
 
     <div class="qa-answer-modal-card" role="dialog" aria-modal="true" aria-label="답변 크게보기">

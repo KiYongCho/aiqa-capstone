@@ -1,6 +1,29 @@
 // qa.js
 const API_BASE = "https://aiqa-capstone.onrender.com";
 
+/** =========================
+ * ✅ 카카오 공유 설정
+ * =========================
+ * - 카카오 디벨로퍼스에서 앱 생성 후 JavaScript 키를 넣어주세요.
+ * - 플랫폼(Web) 도메인에 배포 도메인을 등록해야 공유가 됩니다.
+ */
+const KAKAO_JS_KEY = "PASTE_YOUR_KAKAO_JAVASCRIPT_KEY_HERE";
+
+// 카카오 공유에 넣을 대표 이미지(https 필수 권장)
+// 기본: 현재 origin의 /favicon.ico (https가 아닐 경우 빈 값이 될 수 있음)
+function defaultShareImageUrl() {
+  try {
+    const o = window.location.origin;
+    if (o.startsWith("https://")) return o + "/favicon.ico";
+    return "";
+  } catch {
+    return "";
+  }
+}
+
+// 답변 일부(요약용) 길이
+const SHARE_SNIPPET_LEN = 220;
+
 (function () {
   const questionInput = document.getElementById('questionInput');
   const submitBtn = document.getElementById('submitBtn');
@@ -24,7 +47,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   const overlayBtn = document.getElementById('overlayBtn');
   const overlaySub = document.getElementById('overlaySub');
 
-  // ✅ 답변 크게보기 모달(qa.html에 존재해야 함)
+  // ✅ 답변 크게보기 모달
   const answerModal = document.getElementById('answerModal');
   const answerCloseBtn = document.getElementById('answerCloseBtn');
   const answerCopyBtn = document.getElementById('answerCopyBtn');
@@ -56,20 +79,38 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   let overlayPauseRequested = false;
 
   // ✅ Hybrid STT 상태
-  let isRecording = false;            // MediaRecorder 녹음 중 여부
-  let isRealtimeListening = false;    // WebSpeech 실시간 인식 중 여부
-  let realtimeBaseText = "";          // 음성 시작 당시 textarea의 기존 텍스트
-  let realtimeFinal = "";             // WebSpeech final 누적
-  let realtimeInterim = "";           // WebSpeech interim
+  let isRecording = false;
+  let isRealtimeListening = false;
+  let realtimeBaseText = "";
+  let realtimeFinal = "";
+  let realtimeInterim = "";
 
-  // ✅ 실시간 전사 안정화 (자동 재시작 + 폴백)
   let realtimeWanted = false;
   let realtimeRestartTimer = null;
 
-  // 이벤트 중복 바인딩 방지
   let boundScroll = false;
   let boundTopBtn = false;
   let boundQaListDelegate = false;
+
+  // =========================
+  // ✅ Kakao 초기화
+  // =========================
+  function initKakaoOnce() {
+    try {
+      if (!window.Kakao) return false;
+      if (!KAKAO_JS_KEY || KAKAO_JS_KEY.includes("PASTE_YOUR")) return false;
+
+      // 이미 init되어 있으면 재init 불필요
+      if (window.Kakao.isInitialized && window.Kakao.isInitialized()) return true;
+
+      window.Kakao.init(KAKAO_JS_KEY);
+      return window.Kakao.isInitialized ? window.Kakao.isInitialized() : true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  const kakaoReady = initKakaoOnce();
 
   function storageKey() {
     return 'lecture-qa:' + (videoKey || 'default');
@@ -101,6 +142,28 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
     return div.innerHTML;
   }
 
+  function normalizeText(s) {
+    return String(s || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  function snippet(s, maxLen) {
+    const t = normalizeText(s).replace(/\s+/g, ' ');
+    if (t.length <= maxLen) return t;
+    return t.slice(0, maxLen - 1) + '…';
+  }
+
+  function getShareLink() {
+    // 공유 링크는 “현재 페이지 링크”가 원칙인데,
+    // iframe 안이면 window.location.href가 qa.html이 될 수 있음.
+    // 사용자가 실제 보고 있는 부모 페이지가 referrer로 들어오는 경우가 많아 referrer를 우선 사용.
+    const refUrl = document.referrer || '';
+    if (refUrl && refUrl.startsWith('http')) return refUrl;
+    return window.location.href;
+  }
+
   // =========================
   // ✅ 답변 크게보기 모달
   // =========================
@@ -110,7 +173,6 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
     lastFocusedEl = document.activeElement;
     modalAnswerText = (answer || '');
 
-    // 텍스트 주입
     answerModalBody.textContent = modalAnswerText;
 
     if (answerModalMeta) {
@@ -120,16 +182,13 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
       answerModalMeta.textContent = parts.join(' · ');
     }
 
-    // 열기
     answerModal.classList.remove('hidden');
     answerModal.classList.add('flex');
     answerModal.setAttribute('aria-hidden', 'false');
 
-    // 스크롤 top + 포커스
     try { answerModalBody.scrollTop = 0; } catch (_) {}
     try { (answerCloseBtn || answerModal).focus(); } catch (_) {}
 
-    // 배경 스크롤 잠금(qaList 스크롤도 방지)
     document.documentElement.classList.add('qa-modal-open');
     document.body.classList.add('qa-modal-open');
   }
@@ -181,7 +240,6 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   if (answerCloseBtn) answerCloseBtn.addEventListener('click', closeAnswerModal);
   if (answerCopyBtn) answerCopyBtn.addEventListener('click', copyModalAnswer);
 
-  // dim 클릭 닫기: data-close="1" 영역
   if (answerModal) {
     answerModal.addEventListener('click', (e) => {
       const t = e.target;
@@ -195,6 +253,97 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
       closeAnswerModal();
     }
   });
+
+  // =========================
+  // ✅ 공유 기능: 메일 / 카카오
+  // =========================
+  function openMailComposer({ subject, body }) {
+    const s = encodeURIComponent(subject || 'AIQOO 답변 공유');
+    const b = encodeURIComponent(body || '');
+    window.location.href = `mailto:?subject=${s}&body=${b}`;
+  }
+
+  async function shareToKakao({ title, description, linkUrl, imageUrl }) {
+    // SDK 사용
+    const ok = initKakaoOnce();
+    if (!ok || !window.Kakao || !window.Kakao.Share) {
+      // 폴백: Web Share (모바일)
+      if (navigator.share) {
+        try {
+          await navigator.share({ title, text: `${title}\n\n${description}\n\n${linkUrl}`, url: linkUrl });
+          return;
+        } catch (_) {}
+      }
+      alert('카카오 공유를 사용하려면 Kakao JS 키 설정 및 도메인 등록이 필요합니다.');
+      return;
+    }
+
+    const img = imageUrl || defaultShareImageUrl();
+
+    // Kakao Link는 imageUrl이 https인 것이 권장(일부 환경에서 필수)
+    if (!img || !String(img).startsWith('http')) {
+      // 이미지가 없으면 일단 description 중심으로 공유 시도(일부 템플릿은 image 필수)
+      // 안전하게 Web Share로 폴백
+      if (navigator.share) {
+        try {
+          await navigator.share({ title, text: `${title}\n\n${description}\n\n${linkUrl}`, url: linkUrl });
+          return;
+        } catch (_) {}
+      }
+      alert('카카오 공유 이미지 URL(https)을 설정해 주세요. 기본값: https://도메인/favicon.ico');
+      return;
+    }
+
+    window.Kakao.Share.sendDefault({
+      objectType: 'feed',
+      content: {
+        title: title,
+        description: description,
+        imageUrl: img,
+        link: { mobileWebUrl: linkUrl, webUrl: linkUrl }
+      },
+      buttons: [
+        {
+          title: '페이지 열기',
+          link: { mobileWebUrl: linkUrl, webUrl: linkUrl }
+        }
+      ]
+    });
+  }
+
+  function buildSharePayload(item, idx) {
+    const linkUrl = getShareLink();
+    const q = normalizeText(item.question || '');
+    const a = normalizeText(item.answer || '');
+    const aSnippet = snippet(a, SHARE_SNIPPET_LEN);
+
+    const title = `AIQOO 답변 공유 · Q${idx + 1}`;
+    const desc = `Q: ${snippet(q, 80)}\nA: ${aSnippet}`;
+
+    const mailSubject = `AIQOO 답변 공유 (Q${idx + 1})`;
+    const mailBody =
+`AIQOO 답변 공유
+
+Q${idx + 1}
+질문:
+${q}
+
+답변(일부):
+${aSnippet}
+
+링크:
+${linkUrl}
+`;
+
+    return {
+      title,
+      description: desc,
+      linkUrl,
+      imageUrl: defaultShareImageUrl(),
+      mailSubject,
+      mailBody
+    };
+  }
 
   // =========================
   // 오버레이 제어
@@ -273,7 +422,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   }
 
   // =========================
-  // ✅ render(): 버튼을 “답변 상단”에 배치
+  // ✅ render(): 답변 상단에 [크게보기][카카오][메일] 버튼
   // =========================
   function render() {
     videoKeyLabel.textContent = videoKey || 'default';
@@ -290,19 +439,18 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
       const div = document.createElement('div');
       div.className = 'qa-item mb-3.5 overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.03]';
 
-      // 답변 영역 구성 (스크롤 없음: qaList만 스크롤)
       let answerBlock = '';
       if (item.answer) {
         answerBlock =
           '<div class="border-t border-white/[0.05] bg-black/20 px-3.5 py-3">' +
-            // ✅ 상단 헤더 (버튼을 여기로)
             '<div class="mb-2 flex items-center justify-between gap-2">' +
               '<div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">답변 (LLM)</div>' +
-              '<button type="button" class="qa-answer-zoombtn" data-action="answerZoom" data-idx="' + String(originalIndex) + '">' +
-                '답변 크게보기' +
-              '</button>' +
+              '<div class="flex items-center gap-1.5">' +
+                '<button type="button" class="qa-answer-zoombtn" data-action="answerZoom" data-idx="' + String(originalIndex) + '">답변 크게보기</button>' +
+                '<button type="button" class="qa-pill-btn qa-share-kakao" data-action="shareKakao" data-idx="' + String(originalIndex) + '">카카오 공유</button>' +
+                '<button type="button" class="qa-pill-btn qa-share-mail" data-action="shareMail" data-idx="' + String(originalIndex) + '">메일로 보내기</button>' +
+              '</div>' +
             '</div>' +
-            // ✅ 본문 (높이 제한/내부 스크롤 제거)
             '<div class="overflow-x-hidden text-[13px] leading-relaxed text-zinc-300 whitespace-pre-wrap">' +
               escapeHtml(item.answer) +
             '</div>' +
@@ -312,9 +460,9 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
           '<div class="border-t border-white/[0.05] bg-black/20 px-3.5 py-3">' +
             '<div class="mb-2 flex items-center justify-between gap-2">' +
               '<div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">답변</div>' +
-              '<button type="button" class="qa-answer-zoombtn" data-action="answerZoomError" data-idx="' + String(originalIndex) + '">' +
-                '답변 크게보기' +
-              '</button>' +
+              '<div class="flex items-center gap-1.5">' +
+                '<button type="button" class="qa-answer-zoombtn" data-action="answerZoomError" data-idx="' + String(originalIndex) + '">답변 크게보기</button>' +
+              '</div>' +
             '</div>' +
             '<div class="text-[13px] leading-normal text-red-400 whitespace-pre-wrap">' + escapeHtml(item.error) + '</div>' +
           '</div>';
@@ -523,7 +671,6 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
     realtimeRec.onerror = (e) => {
       const err = e.error || '';
 
-      // ✅ 충돌/중단 계열이면 "실시간만" 포기하고 계속 녹음(폴백)
       if (err === 'audio-capture' || err === 'aborted') {
         voiceStatus.textContent = '실시간 인식이 불안정합니다. (실시간 표시는 중단하고, 종료 후 고품질 전사로 진행합니다)';
         try { realtimeRec.stop(); } catch (_) {}
@@ -622,11 +769,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
     }
 
     const text = (data && data.text) ? String(data.text) : '';
-    const model = (data && data.model) ? String(data.model) : '';
-    const cleaned = !!(data && data.cleaned);
-    const cleanModel = (data && data.clean_model) ? String(data.clean_model) : '';
-
-    return { text: text.trim(), model, cleaned, cleanModel };
+    return text.trim();
   }
 
   function replaceLiveTextWithSTT(sttText) {
@@ -692,18 +835,15 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
 
       try {
         const blob = new Blob(chunks, { type: mediaRecorder?.mimeType || 'audio/webm' });
-        const result = await sttTranscribe(blob);
+        const text = await sttTranscribe(blob);
 
-        if (!result.text) {
+        if (!text) {
           voiceStatus.textContent = '전사 결과가 비어 있습니다. (조금 더 크게 말해보세요)';
           return;
         }
 
-        replaceLiveTextWithSTT(result.text);
-
-        const modelLabel = result.model ? `(${result.model})` : '';
-        const cleanLabel = (result.cleaned && result.cleanModel) ? ` + clean:${result.cleanModel}` : '';
-        voiceStatus.textContent = `✅ 전사 완료 ${modelLabel}${cleanLabel}`;
+        replaceLiveTextWithSTT(text);
+        voiceStatus.textContent = '✅ 전사 완료';
       } catch (err) {
         voiceStatus.textContent = '❗ 전사 오류: ' + (err?.message || 'unknown');
       }
@@ -759,47 +899,78 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   }
 
   // =========================
-  // ✅ “답변 크게보기” 클릭 처리 (이벤트 위임)
+  // ✅ 버튼 클릭 처리 (이벤트 위임)
   // =========================
   if (qaList && !boundQaListDelegate) {
-    qaList.addEventListener('click', (e) => {
+    qaList.addEventListener('click', async (e) => {
       const btn = e.target && e.target.closest ? e.target.closest('button[data-action]') : null;
       if (!btn) return;
 
       const action = btn.getAttribute('data-action');
-      if (action !== 'answerZoom' && action !== 'answerZoomError') return;
-
       const idxStr = btn.getAttribute('data-idx');
       const idx = Number(idxStr);
-      if (!Number.isFinite(idx)) return;
 
-      const items = loadQA();
-      const item = items[idx];
-      if (!item) return;
+      // 크게보기
+      if (action === 'answerZoom' || action === 'answerZoomError') {
+        if (!Number.isFinite(idx)) return;
+        const items = loadQA();
+        const item = items[idx];
+        if (!item) return;
 
-      const metaLine = [
-        `Q${idx + 1}`,
-        item.time ? String(item.time) : '',
-        item.provider ? String(item.provider) : '',
-        item.tLabel ? ('t=' + String(item.tLabel)) : ''
-      ].filter(Boolean).join(' · ');
+        const metaLine = [
+          `Q${idx + 1}`,
+          item.time ? String(item.time) : '',
+          item.provider ? String(item.provider) : '',
+          item.tLabel ? ('t=' + String(item.tLabel)) : ''
+        ].filter(Boolean).join(' · ');
 
-      const answerText = action === 'answerZoomError'
-        ? (item.error || '')
-        : (item.answer || '');
+        const answerText = action === 'answerZoomError'
+          ? (item.error || '')
+          : (item.answer || '');
 
-      openAnswerModal({
-        metaLine,
-        question: item.question || '',
-        answer: answerText || ''
-      });
+        openAnswerModal({
+          metaLine,
+          question: item.question || '',
+          answer: answerText || ''
+        });
+        return;
+      }
+
+      // 공유(답변이 있어야)
+      if (action === 'shareKakao' || action === 'shareMail') {
+        if (!Number.isFinite(idx)) return;
+        const items = loadQA();
+        const item = items[idx];
+        if (!item || !item.answer) return;
+
+        const payload = buildSharePayload(item, idx);
+
+        if (action === 'shareMail') {
+          openMailComposer({ subject: payload.mailSubject, body: payload.mailBody });
+          return;
+        }
+
+        if (action === 'shareKakao') {
+          // 버튼 중복 클릭 방지
+          btn.disabled = true;
+          try {
+            await shareToKakao({
+              title: payload.title,
+              description: payload.description,
+              linkUrl: payload.linkUrl,
+              imageUrl: payload.imageUrl
+            });
+          } finally {
+            btn.disabled = false;
+          }
+          return;
+        }
+      }
     });
     boundQaListDelegate = true;
   }
 
-  // =========================
   // 텍스트 질문 전송
-  // =========================
   submitBtn.addEventListener('click', function () {
     notifyParentPause();
     const v = (questionInput.value || '').trim();
@@ -823,7 +994,7 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
     notifyParentPause();
   });
 
-  // ✅ 음성 버튼 토글
+  // 음성 버튼 토글
   voiceBtn.addEventListener('click', async function () {
     if (voiceBtn.disabled) return;
 
@@ -879,10 +1050,16 @@ const API_BASE = "https://aiqa-capstone.onrender.com";
   setOverlayPending(false);
   setQuestionUIEnabled(false);
 
-  // 초기 안내
   if (!SpeechRecognition) {
     voiceStatus.textContent = '실시간 자막(Web Speech)이 미지원입니다. (끝내기 후 고품질 전사로 처리됩니다)';
   } else {
     voiceStatus.textContent = '';
+  }
+
+  // 카카오 초기화 상태 안내(개발자용)
+  if (!kakaoReady && KAKAO_JS_KEY && !KAKAO_JS_KEY.includes("PASTE_YOUR")) {
+    // 키는 있는데 init 실패(도메인 미등록/SDK 로드 실패 등)
+    // 콘솔에만 로그
+    try { console.warn('[AIQOO] Kakao init failed. Check domain whitelist & key.'); } catch (_) {}
   }
 })();

@@ -36,7 +36,6 @@
   
   /* =========================
      ✅ Q&A 재생중 오버레이(모달)
-     - fixed ❌  → absolute ✅ : iframe 영역 내부만 덮음
      ========================= */
   .qa-overlay {
     position: absolute;
@@ -140,7 +139,6 @@
      ✅ iframe 내부 스크롤 안정화
      ============================== */
   html, body { height: 100%; }
-  
   #qaList { min-height: 0; }
   
   /* ==============================
@@ -179,9 +177,9 @@
   }
   
   /* ==============================
-     ✅ 답변 크게보기 버튼 (답변 상단 헤더에서 사용)
+     ✅ 공용 pill 버튼
      ============================== */
-  .qa-answer-zoombtn {
+  .qa-pill-btn {
     border: 1px solid rgba(255,255,255,0.14);
     background: rgba(255,255,255,0.06);
     color: rgba(244,244,245,0.92);
@@ -194,42 +192,78 @@
     white-space: nowrap;
   }
   
-  .qa-answer-zoombtn:hover {
+  .qa-pill-btn:hover {
     background: rgba(255,255,255,0.10);
     border-color: rgba(255,255,255,0.22);
     transform: translateY(-1px);
   }
   
-  .qa-answer-zoombtn:active {
+  .qa-pill-btn:active {
     transform: translateY(0);
+  }
+  
+  .qa-pill-btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  /* ✅ 답변 크게보기 버튼 */
+  .qa-answer-zoombtn { /* 기존 클래스 유지 */
+    composes: qa-pill-btn;
+  }
+  /* composes 미지원 브라우저 대비: 동일 속성 반복 */
+  .qa-answer-zoombtn{
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.06);
+    color: rgba(244,244,245,0.92);
+    font-size: 11px;
+    font-weight: 800;
+    padding: 6px 10px;
+    border-radius: 9999px;
+    transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    user-select: none;
+    white-space: nowrap;
+  }
+  
+  /* ✅ 공유 버튼(카카오/메일) */
+  .qa-share-kakao{
+    border: 1px solid rgba(250, 227, 0, 0.22);
+    background: rgba(250, 227, 0, 0.10);
+    color: rgba(255,255,255,0.92);
+  }
+  .qa-share-kakao:hover{
+    border-color: rgba(250, 227, 0, 0.35);
+    background: rgba(250, 227, 0, 0.16);
+  }
+  
+  .qa-share-mail{
+    border: 1px solid rgba(34, 211, 238, 0.22);
+    background: rgba(34, 211, 238, 0.10);
+    color: rgba(255,255,255,0.92);
+  }
+  .qa-share-mail:hover{
+    border-color: rgba(34, 211, 238, 0.35);
+    background: rgba(34, 211, 238, 0.16);
   }
   
   /* ==============================
      ✅ 답변 크게보기: 브라우저 전체화면 모달
-     - iframe 안에서도 fixed로 화면 전체를 덮음
-     - 폰트 크게
      ============================== */
+  .qa-modal-open { overflow: hidden !important; }
   
-  /* 모달 열렸을 때 배경 스크롤 잠금(js에서 html/body에 class 추가) */
-  .qa-modal-open {
-    overflow: hidden !important;
-  }
-  
-  /* overlay 컨테이너 */
   #answerModal {
     position: fixed;
     inset: 0;
     z-index: 20000;
-    display: none; /* 기본 숨김, JS에서 flex로 전환 */
+    display: none;
     align-items: center;
     justify-content: center;
     padding: 20px;
   }
-  
   #answerModal.flex { display: flex; }
   #answerModal.hidden { display: none; }
   
-  /* dim */
   .qa-answer-modal-dim {
     position: absolute;
     inset: 0;
@@ -238,7 +272,6 @@
     -webkit-backdrop-filter: blur(10px);
   }
   
-  /* 큰 모달 카드 */
   .qa-answer-modal-card {
     position: relative;
     width: min(980px, 96vw);
@@ -258,7 +291,6 @@
     to   { opacity: 1; transform: translateY(0) scale(1); }
   }
   
-  /* 헤더 */
   .qa-answer-modal-header {
     padding: 14px 16px;
     border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -283,20 +315,16 @@
     word-break: break-word;
   }
   
-  /* 액션 버튼 */
   .qa-answer-modal-actions {
     display: flex;
     align-items: center;
     gap: 8px;
   }
   
-  /* 본문: 여기만 스크롤 */
   #answerModalBody {
     padding: 18px 18px 22px;
     overflow-y: auto;
     overflow-x: hidden;
-  
-    /* ✅ 폰트 크게 */
     font-size: 16px;
     line-height: 1.75;
     color: rgba(244,244,245,0.92);
