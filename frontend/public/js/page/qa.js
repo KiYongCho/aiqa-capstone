@@ -7,7 +7,7 @@ import { openAnswerModal } from "/js/ui/modal.view.js";
 import { renderQA, renderQAList, clearQA } from "/js/ui/qa.view.js";
 import { normalizeText, formatTime } from "/js/util/utils.js";
 
-const $ = (sel) => document.querySelector(sel);
+const $ = (sel) => document.querySelector(sel); 
 
 const el = {
   overlay: $("#playOverlay"),
