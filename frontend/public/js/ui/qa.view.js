@@ -6,7 +6,7 @@ import { normalizeText } from "/js/util/utils.js";
 
 // ✅ 기존 오류 수정:
 // markdown.util.js는 markdownToSafeHTML가 아니라 renderMarkdownSafe를 export 함
-import { renderMarkdownSafe, bindMarkdownCopyButtons } from "/js/util/markdown.util.js";
+import { renderMarkdownSafe, bindMarkdownCopyButtons } from "/js/util/markdown.util.js"; 
 
 function escapeHTML(str) {
   const s = String(str ?? "");
