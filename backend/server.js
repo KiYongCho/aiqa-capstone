@@ -149,7 +149,6 @@ app.post("/api/answer", async (req, res) => {
         { role: "system", content: sys },
         { role: "user", content: userInput }
       ],
-      // 필요 시 조절:
       // reasoning: { effort: "medium" },
     });
 
@@ -183,7 +182,6 @@ app.post("/api/stt", upload.single("audio"), async (req, res) => {
     }
 
     // buffer -> File
-    // Node 18+ 에서 global File 사용 가능 (Render 런타임 Node 18/20 권장)
     const file = new File([req.file.buffer], req.file.originalname || "speech.webm", {
       type: req.file.mimetype || "audio/webm",
     });
@@ -193,7 +191,6 @@ app.post("/api/stt", upload.single("audio"), async (req, res) => {
       file,
       model: OPENAI_STT_MODEL,
       language: "ko",
-      // ✅ 기술 강의 최적화 힌트(효과 있음)
       prompt:
         "온라인 강의 음성 전사입니다. " +
         "프로그래밍/AI 용어(예: API, JSON, React, Spring, JPA, Whisper, Vercel, Render, GPT)를 정확히 유지하고, " +
@@ -204,7 +201,6 @@ app.post("/api/stt", upload.single("audio"), async (req, res) => {
     const rawText = (tr && tr.text) ? String(tr.text).trim() : "";
     if (!rawText) return res.status(502).json({ error: "전사 결과가 비어 있습니다." });
 
-    // 정제 OFF면 그대로 반환
     if (OPENAI_STT_CLEAN !== "on") {
       return res.json({
         text: rawText,
@@ -229,7 +225,6 @@ app.post("/api/stt", upload.single("audio"), async (req, res) => {
         { role: "system", content: cleanSys },
         { role: "user", content: rawText }
       ],
-      // 정제는 과한 추론이 오히려 “의미 변경”을 유발할 수 있어 기본/낮게 권장
       // reasoning: { effort: "low" },
     });
 
@@ -237,7 +232,6 @@ app.post("/api/stt", upload.single("audio"), async (req, res) => {
       ? String(cleanedResp.output_text).trim()
       : "";
 
-    // 정제가 실패/빈문자면 원문으로 fallback
     const finalText = cleanedText || rawText;
 
     return res.json({

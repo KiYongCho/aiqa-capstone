@@ -1,14 +1,12 @@
 /* api.service.js
- * - Q&A API 호출 전담
- * - named export: askQA  (qa.js에서 import { askQA } 로 사용)
- * - 호환성: default export도 함께 제공(다른 파일이 default로 import해도 안 깨지게)
+ * - Q&A / STT API 호출 전담
+ * - named export: askQA, transcribeAudio
  */
 
-export const API_BASE = "https://aiqa-capstone.onrender.com";
+export const API_BASE =
+  localStorage.getItem("AIQOO_API_BASE") ||
+  "https://aiqa-capstone.onrender.com"; // 필요시 localStorage로 교체: AIQOO_API_BASE
 
-/**
- * 안전한 JSON 파서
- */
 function safeJsonParse(text) {
   try {
     return text ? JSON.parse(text) : null;
@@ -17,9 +15,6 @@ function safeJsonParse(text) {
   }
 }
 
-/**
- * 공통 fetch 래퍼
- */
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
   const text = await res.text();
@@ -36,11 +31,10 @@ async function fetchJson(url, options = {}) {
 
 /**
  * Q&A 요청
- * - qa.js에서 askQA(text)로 호출하므로 string 인자를 기본으로 받습니다.
- * - 확장 대비: 객체 형태({question, t, caption, videoId})도 허용
- *
- * @param {string|{question:string, t?:number, caption?:string, videoId?:string}} input
- * @returns {Promise<string>} answerText
+ * 서버: POST /api/answer
+ * @param {string|object} input
+ *  - string: question
+ *  - object: {question, videoKey, videoUrl, provider, youtubeId, t, tLabel}
  */
 export async function askQA(input) {
   let payload;
@@ -52,29 +46,45 @@ export async function askQA(input) {
   } else if (input && typeof input === "object") {
     const q = String(input.question || "").trim();
     if (!q) return "";
+
     payload = {
       question: q,
-      t: typeof input.t === "number" ? input.t : undefined,
-      caption: input.caption ? String(input.caption) : undefined,
-      videoId: input.videoId ? String(input.videoId) : undefined,
+      videoKey: input.videoKey || "default",
+      videoUrl: input.videoUrl || "",
+      provider: input.provider || "",
+      youtubeId: input.youtubeId || "",
+      t: Number.isFinite(Number(input.t)) ? Number(input.t) : 0,
+      tLabel: input.tLabel || "",
     };
   } else {
     return "";
   }
 
-  // 백엔드 엔드포인트: /api/qa
-  const data = await fetchJson(`${API_BASE}/api/qa`, {
+  const data = await fetchJson(`${API_BASE}/api/answer`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 
-  // 다양한 응답 포맷 방어
-  const answer =
-    (data && (data.answer || data.output || data.result || data.message)) ?? "";
-
-  return String(answer || "");
+  return String((data && data.answer) || "");
 }
 
-// ✅ 호환성: 혹시 다른 곳에서 `import askQA from ...` 형태로 쓰고 있으면 깨질 수 있어 default도 제공
-export default askQA;
+/**
+ * STT 요청
+ * 서버: POST /api/stt (multipart/form-data, field: audio)
+ * @param {FormData} formData
+ * @returns {Promise<string>}
+ */
+export async function transcribeAudio(formData) {
+  const data = await fetchJson(`${API_BASE}/api/stt`, {
+    method: "POST",
+    body: formData,
+  });
+
+  return String((data && data.text) || "");
+}
+
+export default {
+  askQA,
+  transcribeAudio,
+};
