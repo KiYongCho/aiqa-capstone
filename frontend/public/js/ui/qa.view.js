@@ -1,7 +1,8 @@
 // qa.view.js
-// - 우측 패널(root)을 건드리지 않고
-// - 내부의 "목록 영역(.aiqoo-qa-list)"에만 Q/A 아이템을 추가합니다.
-// - 따라서 "질문 시작하기 버튼" / "상단 헤더" 등 레이아웃이 사라지지 않습니다.
+// - 우측 패널(root)을 절대 초기화하지 않음
+// - 내부 .aiqoo-qa-list에만 append/replace
+// - Q/A는 "❓ / 💡" 이모지로 표시
+// - 연속 개행/불필요 공백 정리
 
 function normalizeText(input) {
   const t = (input ?? "").toString();
@@ -10,7 +11,7 @@ function normalizeText(input) {
     .split("\n")
     .map((line) => line.replace(/[ \t]+$/g, ""))
     .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\n{3,}/g, "\n\n") // 과도한 빈 줄 제거
     .trim();
 }
 
@@ -28,38 +29,28 @@ function formatAnswerToHTML(answerText) {
   return safe.replaceAll("\n", "<br>");
 }
 
-/**
- * containerEl: 우측 패널 전체(root) 또는 목록 영역 모두 가능
- * - root가 들어오면 내부에 .aiqoo-qa-list를 자동 생성/탐색해서 거기에만 append
- */
 function getListContainer(containerEl) {
   if (!containerEl) return null;
 
-  // 이미 목록 영역이면 그대로 사용
+  // containerEl이 리스트면 그대로
   if (containerEl.classList?.contains("aiqoo-qa-list")) return containerEl;
 
-  // root 내부에서 목록 영역 탐색
+  // root에서 리스트 찾기
   let list = containerEl.querySelector?.(".aiqoo-qa-list");
   if (list) return list;
 
-  // 없으면 생성 (root 하단에 붙임)
+  // 없으면 생성
   list = document.createElement("div");
   list.className = "aiqoo-qa-list";
   containerEl.appendChild(list);
   return list;
 }
 
-/**
- * 선택: 기존 목록을 비우고 새 Q/A만 보여주고 싶을 때 사용
- */
 export function clearQA(containerEl) {
   const list = getListContainer(containerEl);
   if (list) list.innerHTML = "";
 }
 
-/**
- * Q/A 1개 렌더링(append)
- */
 export function renderQA(containerEl, { question, answer, mode = "append" }) {
   const list = getListContainer(containerEl);
   if (!list) return;
@@ -68,7 +59,7 @@ export function renderQA(containerEl, { question, answer, mode = "append" }) {
   const a = normalizeText(answer);
 
   if (mode === "replace") {
-    // "목록 영역"만 초기화 (root 전체를 날리지 않음)
+    // ✅ root 전체가 아니라 list만 비움
     list.innerHTML = "";
   }
 

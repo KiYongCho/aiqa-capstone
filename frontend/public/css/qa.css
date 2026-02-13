@@ -378,3 +378,67 @@
 .aiqoo-qa-answer-text br {
   line-height: 1.5;
 }
+
+/* ✅ hidden이 동작하지 않는 케이스 방지 */
+.hidden {
+  display: none !important;
+}
+
+/* 우측 패널이 overlay 아래로 깔리는 문제 방지 */
+#aiqooRightPanel,
+.aiqoo-right-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 420px;
+  z-index: 999999;
+}
+
+/* Q/A compact UI */
+.aiqoo-qa-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  overflow-y: auto;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.aiqoo-qa-item {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.aiqoo-qa-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.aiqoo-qa-question {
+  color: #facc15;
+  font-weight: 700;
+}
+
+.aiqoo-qa-answer {
+  color: #e5e7eb;
+  margin-top: 6px;
+}
+
+.aiqoo-qa-icon {
+  font-size: 18px;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.aiqoo-qa-text {
+  margin: 0;
+  line-height: 1.5;
+  word-break: break-word;
+}
