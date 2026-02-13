@@ -7,7 +7,7 @@ import { askQA } from "/js/service/api.service.js";
 import { openAnswerModal } from "/js/ui/modal.view.js";
 import { shareKakao, shareMail } from "/js/service/share.service.js";
 
-export function initQA({ rootEl }) {
+export function initQA({ rootEl, autoShow = false } = {}) {
   const ui = mountQA(rootEl, {
     async onSend(text) {
       ui.setStatus("요청 중...");
@@ -25,7 +25,9 @@ export function initQA({ rootEl }) {
         ui.clearQuestion();
       } catch (err) {
         console.error(err);
-        answerHandle.setAnswerInstant("답변 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        answerHandle.setAnswerInstant(
+          "답변 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+        );
         ui.setStatus("오류");
       }
     },
@@ -42,6 +44,9 @@ export function initQA({ rootEl }) {
       shareMail(answerText);
     },
   });
+
+  // ✅ 초기 표시 옵션
+  if (autoShow) ui.show();
 
   return ui;
 }
