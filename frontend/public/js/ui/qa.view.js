@@ -3,7 +3,10 @@
 // - 버튼 중앙 정렬 + 답변삭제 버튼 추가
 
 import { normalizeText } from "/js/util/utils.js";
-import { markdownToSafeHTML } from "/js/util/markdown.util.js";
+
+// ✅ 기존 오류 수정:
+// markdown.util.js는 markdownToSafeHTML가 아니라 renderMarkdownSafe를 export 함
+import { renderMarkdownSafe, bindMarkdownCopyButtons } from "/js/util/markdown.util.js";
 
 function escapeHTML(str) {
   const s = String(str ?? "");
@@ -11,14 +14,15 @@ function escapeHTML(str) {
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;")
+    .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
 
 function formatAnswerToHTML(answer) {
   const a = normalizeText(answer);
   if (!a) return "";
-  return markdownToSafeHTML(a);
+  // ✅ 안전 마크다운 렌더링
+  return renderMarkdownSafe(a);
 }
 
 function getListContainer(containerEl) {
@@ -117,6 +121,10 @@ export function renderQA(containerEl, item, options = {}) {
       ${escapeHTML(metaText)}
     </div>
   `;
+
+  // ✅ 마크다운 코드블록 "복사" 버튼 이벤트 위임 바인딩
+  // (markdown.util.js의 bindMarkdownCopyButtons 사용)
+  bindMarkdownCopyButtons(wrapper);
 
   if (mode === "prepend") list.prepend(wrapper);
   else list.appendChild(wrapper);
