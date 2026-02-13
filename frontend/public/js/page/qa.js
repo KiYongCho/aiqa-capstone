@@ -79,15 +79,32 @@ function toMailto({ subject, body }) {
   const s = encodeURIComponent(subject || "");
   const b = encodeURIComponent(body || "");
 
-  // mailto 길이 제한 안전장치
   const MAX = 1800;
   const bodySafe =
     b.length > MAX
-      ? b.slice(0, MAX) +
-        encodeURIComponent("\n\n(이하 내용은 길이 제한으로 생략되었습니다)")
+      ? b.slice(0, MAX) + encodeURIComponent("\n\n(이하 내용은 길이 제한으로 생략되었습니다)")
       : b;
 
   return `mailto:?subject=${s}&body=${bodySafe}`;
+}
+
+// ✅ 답변은 마크다운 원문 보존(끝 공백만 제거)
+function normalizeAnswerKeepMarkdown(answer) {
+  const a = String(answer ?? "");
+  return a.replace(/\s+$/g, "");
+}
+
+// ✅ #qa=<id> 형태 해시 파서
+function getQaIdFromHash() {
+  const h = String(window.location.hash || "");
+  const m = h.match(/#qa=([^&]+)/);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+}
+
+function buildFullViewUrlById(id) {
+  const base = window.location.href.split("#")[0];
+  return `${base}#qa=${encodeURIComponent(String(id || ""))}`;
 }
 
 const player = createPlayerService();
@@ -105,17 +122,14 @@ let meta = {
 let lastTimeInfo = { t: 0, tLabel: "00:00", provider: "", youtubeId: "" };
 const store = createLectureStore(() => meta.videoKey || "default");
 
-// ✅ 요청~응답 사이 입력 잠금 상태
 let busy = false;
 
 function setBusy(flag, label = "답변 생성 중...") {
   busy = !!flag;
 
   if (busy) {
-    // ✅ 버튼/입력 비활성화
     if (el.input) el.input.disabled = true;
 
-    // ✅ “돌아가는거(로딩)” 표시 (Tailwind animate-spin 사용)
     if (el.voiceStatus) {
       el.voiceStatus.innerHTML = `
         <span class="inline-flex items-center gap-2">
@@ -127,7 +141,6 @@ function setBusy(flag, label = "답변 생성 중...") {
     return;
   }
 
-  // ✅ 다시 활성화(단, 영상 재생 중이면 lockUI에서 다시 잠글 수 있음)
   if (!videoPlaying && qaActive) {
     if (el.input) el.input.disabled = false;
   }
@@ -152,13 +165,15 @@ function syncUI() {
 
 /**
  * ✅ 빈 Q/A 데이터 제거
+ * - 질문은 normalize
+ * - 답변은 마크다운 원문 보존(trim 정도만)
  */
 function sanitizeItems(items) {
   const cleaned = [];
   for (const it of items || []) {
     const q = normalizeText(it?.question || "");
-    const a = normalizeText(it?.answer || "");
-    if (!q || !a) continue;
+    const a = normalizeAnswerKeepMarkdown(it?.answer || "");
+    if (!q || !a.trim()) continue;
     cleaned.push({ ...it, question: q, answer: a });
   }
   return cleaned;
@@ -203,13 +218,12 @@ function loadHistory() {
 
 function appendHistory(question, answer, timeInfo, id, createdAt) {
   const q = normalizeText(question);
-  const a = normalizeText(answer);
+  const a = normalizeAnswerKeepMarkdown(answer);
 
-  if (!q || !a) return;
+  if (!q || !a.trim()) return;
 
   const items = sanitizeItems(store.load());
 
-  // ✅ 최신이 상단
   items.unshift({
     id: id || crypto?.randomUUID?.() || String(Date.now()),
     createdAt: createdAt || formatTime(),
@@ -230,33 +244,24 @@ function appendHistory(question, answer, timeInfo, id, createdAt) {
 async function startQuestionMode() {
   qaActive = true;
 
-  // pause 요청 + fallback
-  try {
-    player.notifyPause();
-  } catch (_) {}
-  try {
-    window.parent?.postMessage({ type: "qaFocus" }, "*");
-  } catch (_) {}
+  try { player.notifyPause(); } catch (_) {}
+  try { window.parent?.postMessage({ type: "qaFocus" }, "*"); } catch (_) {}
 
   hideOverlay();
   lockUI("⏸️ 영상 정지 중...");
 
-  try {
-    el.input.focus();
-  } catch (_) {}
+  try { el.input.focus(); } catch (_) {}
 }
 
 async function handleAsk() {
-  if (busy) return; // ✅ 중복 전송 방지
+  if (busy) return;
 
   const q = normalizeText(el.input.value);
   if (!q) return;
   if (videoPlaying || !qaActive) return;
 
-  // ✅ 여기부터 “답변 표시 전까지 잠금”
   setBusy(true, "답변 생성 중...");
 
-  // ✅ [추가] 진행상태 모달 표시
   showAnswerProgressModal({
     title: "답변 생성 중…",
     message: "질문을 분석하고 있습니다.",
@@ -279,9 +284,11 @@ async function handleAsk() {
     });
 
     updateAnswerProgressModal({ message: "답변을 정리하고 화면에 표시합니다…" });
-    const a = normalizeText(answer);
 
-    if (!a) {
+    // ✅ 답변은 마크다운 원문 보존
+    const a = normalizeAnswerKeepMarkdown(answer);
+
+    if (!a.trim()) {
       if (el.voiceStatus) el.voiceStatus.textContent = "❗ 빈 답변이 반환되었습니다.";
       return;
     }
@@ -289,7 +296,6 @@ async function handleAsk() {
     el.empty.classList.add("hidden");
     el.resetWrap.classList.remove("hidden");
 
-    // ✅ 최신 답변 상단 표시
     const id = crypto?.randomUUID?.() || String(Date.now());
     const createdAt = formatTime();
 
@@ -303,21 +309,30 @@ async function handleAsk() {
 
     el.input.value = "";
 
-    // 최신 상단이므로 스크롤 위로
-    try {
-      el.listWrap.scrollTop = 0;
-    } catch (_) {}
+    try { el.listWrap.scrollTop = 0; } catch (_) {}
   } catch (err) {
     console.error(err);
-    if (el.voiceStatus)
-      el.voiceStatus.textContent = `❗ 실패: ${err?.message || "오류"}`;
+    if (el.voiceStatus) el.voiceStatus.textContent = `❗ 실패: ${err?.message || "오류"}`;
   } finally {
-    // ✅ [추가] 진행상태 모달 종료
     hideAnswerProgressModal();
-
-    // ✅ 답변이 화면에 반영된 이후에 다시 활성화
     setBusy(false);
   }
+}
+
+function tryOpenAnswerFromHash() {
+  const id = getQaIdFromHash();
+  if (!id) return;
+
+  const items = sanitizeItems(store.load());
+  const hit = items.find((it) => String(it?.id || "") === String(id));
+  if (!hit) return;
+
+  const metaText = [
+    hit?.createdAt || "",
+    hit?.meta?.tLabel ? `⏱ ${hit.meta.tLabel}` : "",
+  ].filter(Boolean).join(" · ");
+
+  openAnswerModal(hit.answer || "", metaText);
 }
 
 function bindEvents() {
@@ -338,8 +353,6 @@ function bindEvents() {
       handleAsk();
     }
   });
-
-  // ✅ 버튼 UI 제거: Enter로 전송(Shift+Enter 줄바꿈)
 
   el.resetBtn?.addEventListener("click", () => {
     el.resetModal.classList.remove("hidden");
@@ -364,13 +377,9 @@ function bindEvents() {
     el.resetModal.setAttribute("aria-hidden", "true");
   });
 
-  // TOP 버튼
   el.toTop?.addEventListener("click", () => {
-    try {
-      el.listWrap.scrollTo({ top: 0, behavior: "smooth" });
-    } catch {
-      el.listWrap.scrollTop = 0;
-    }
+    try { el.listWrap.scrollTo({ top: 0, behavior: "smooth" }); }
+    catch { el.listWrap.scrollTop = 0; }
   });
 
   el.listWrap?.addEventListener("scroll", () => {
@@ -404,15 +413,39 @@ function bindEvents() {
     if (kakao) {
       const q = kakao.getAttribute("data-q") || "";
       const a = kakao.getAttribute("data-a") || "";
+
+      // ✅ 카드 id를 찾아 "전체보기 링크" 생성
+      const card = e.target.closest(".aiqoo-qa-item");
+      const id = card?.dataset?.id || "";
+      const fullUrl = id ? buildFullViewUrlById(id) : window.location.href;
+
       try {
+        // 카카오는 길이 제한 때문에 요약될 수 있음 → link로 전체보기 유도
         const { copied } = await shareKakao({
           question: q,
           answer: a,
-          shareUrl: window.location.href,
-          autoCopyFullText: true,
+          shareUrl: fullUrl,           // ✅ 전체보기 링크 포함
+          autoCopyFullText: false,     // ✅ 우리가 직접 "전체 텍스트+링크"를 복사
         });
-        if (copied) toast("📋 전체 문장 복사됨 (카카오는 요약 전송)");
-        else toast("ℹ️ 카카오는 요약 전송");
+
+        // ✅ 항상 전체 문장 + 전체보기 링크를 클립보드에 복사
+        try {
+          const fullText =
+`❓ 질문
+${q}
+
+답변
+${a}
+
+전체보기 링크: ${fullUrl}`;
+          await navigator.clipboard.writeText(fullText);
+          toast("📋 전체 답변+전체보기 링크 복사됨 (카카오는 요약 전송)");
+        } catch {
+          toast("ℹ️ 카카오는 요약 전송 (전체보기 링크 포함)");
+        }
+
+        // copied 플래그는 서비스 구현에 따라 다를 수 있어서 UX 메시지만 사용
+        void copied;
       } catch (err) {
         console.error(err);
         toast("❗ 카카오 공유 실패");
@@ -426,7 +459,8 @@ function bindEvents() {
       const a = email.getAttribute("data-a") || "";
       const metaText = email.getAttribute("data-meta") || "";
       const subject = `[AIQOO 답변] ${q.slice(0, 60)}${q.length > 60 ? "…" : ""}`;
-      const body = `❓ 질문
+      const body =
+`❓ 질문
 ${q}
 
 답변
@@ -443,7 +477,6 @@ ${metaText ? `(${metaText})\n` : ""}공유 링크: ${window.location.href}`;
       return;
     }
 
-    // ✅ [변경] 삭제 클릭 → 확인 모달 → 삭제 수행
     const del = e.target.closest('[data-act="delete"]');
     if (del) {
       const card = e.target.closest(".aiqoo-qa-item");
@@ -453,45 +486,38 @@ ${metaText ? `(${metaText})\n` : ""}공유 링크: ${window.location.href}`;
       const a = del.getAttribute("data-a") || "";
       const metaText = del.getAttribute("data-meta") || "";
 
-      const ok = await confirmDeleteModal({
-        q,
-        a,
-        metaText,
-      });
-
+      const ok = await confirmDeleteModal({ q, a, metaText });
       if (!ok) return;
 
       const items = sanitizeItems(store.load());
-
       const next = id
         ? items.filter((it) => String(it?.id || "") !== String(id))
         : items.filter((it) => {
             const qq = normalizeText(it?.question || "");
-            const aa = normalizeText(it?.answer || "");
-            return !(
-              qq === normalizeText(q) && aa === normalizeText(a)
-            );
+            const aa = normalizeAnswerKeepMarkdown(it?.answer || "");
+            return !(qq === normalizeText(q) && aa === normalizeAnswerKeepMarkdown(a));
           });
 
       store.save(next);
       card?.remove();
 
-      // 비었으면 empty UI 복원
       if (!next.length) {
         el.empty?.classList.remove("hidden");
         el.resetWrap?.classList.add("hidden");
       }
-
       toast("🗑️ 삭제됨");
       return;
     }
   });
+
+  // ✅ 해시 변경으로 들어온 경우도 처리
+  window.addEventListener("hashchange", () => {
+    tryOpenAnswerFromHash();
+  });
 }
 
 function bindParentMessages() {
-  try {
-    window.parent?.postMessage({ type: "qaReady" }, "*");
-  } catch (_) {}
+  try { window.parent?.postMessage({ type: "qaReady" }, "*"); } catch (_) {}
 
   player.onMessage((msg) => {
     if (!msg?.type) return;
@@ -504,6 +530,9 @@ function bindParentMessages() {
         youtubeId: msg.youtubeId || "",
       };
       loadHistory();
+
+      // ✅ videoInfo 받은 뒤에도 해시로 전체보기 열기 시도
+      tryOpenAnswerFromHash();
       return;
     }
 
@@ -538,6 +567,9 @@ function init() {
   bindParentMessages();
   loadHistory();
   syncUI();
+
+  // ✅ 최초 진입 시에도 해시 처리
+  tryOpenAnswerFromHash();
 }
 
 init();

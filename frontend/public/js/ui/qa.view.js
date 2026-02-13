@@ -2,7 +2,7 @@
 // - Q/A는 질문(❓)만 이모지 표시
 // - 버튼 중앙 정렬 + 답변삭제 버튼 포함
 // - 마크다운 안전 렌더링 + 코드블록 복사 버튼
-// - (중요) 모달 기능은 /js/ui/modal.view.js 로 통일 (여기서 제거)
+// - (중요) 답변(answer)은 normalizeText로 뭉개지지 않도록 "원문 보존" 처리
 
 import { normalizeText } from "/js/util/utils.js";
 import { renderMarkdownSafe, bindMarkdownCopyButtons } from "/js/util/markdown.util.js";
@@ -20,15 +20,21 @@ function escapeHTML(str) {
     .replaceAll("'", "&#039;");
 }
 
+// ✅ 답변은 마크다운을 위해 원문 보존 (trim만)
+function normalizeAnswerKeepMarkdown(answer) {
+  const a = String(answer ?? "");
+  const trimmed = a.replace(/\s+$/g, ""); // trailing whitespace만 제거
+  return trimmed;
+}
+
 function formatAnswerToHTML(answer) {
-  const a = normalizeText(answer);
-  if (!a) return "";
+  const a = normalizeAnswerKeepMarkdown(answer);
+  if (!a.trim()) return "";
   return renderMarkdownSafe(a);
 }
 
 function getListContainer(containerEl) {
   if (!containerEl) return null;
-  // qa.html에서는 #qaList 자체가 스크롤 컨테이너이자 리스트 컨테이너
   return containerEl;
 }
 
@@ -83,11 +89,14 @@ export function renderQA(containerEl, item, options = {}) {
 
   const mode = options.mode || "append";
 
+  // ✅ 질문은 normalize
   const q = normalizeText(item?.question);
-  const a = normalizeText(item?.answer);
+
+  // ✅ 답변은 "원문 보존" (마크다운 깨짐 방지)
+  const a = normalizeAnswerKeepMarkdown(item?.answer);
 
   // ✅ 빈 카드 방지
-  if (!q || !a) return false;
+  if (!q || !a.trim()) return false;
 
   if (mode === "replace") {
     list.innerHTML = "";
@@ -123,7 +132,6 @@ export function renderQA(containerEl, item, options = {}) {
     </div>
   `;
 
-  // ✅ 마크다운 코드블록 "복사" 버튼 이벤트 위임 바인딩
   bindMarkdownCopyButtons(wrapper);
 
   if (mode === "prepend") list.prepend(wrapper);
