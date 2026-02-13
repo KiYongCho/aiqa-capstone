@@ -1,13 +1,14 @@
-// public/js/index.js
-// - 첫 화면에서 기본 영상 자동 로드
-// - qaFrame을 id 우선으로 안정적으로 찾기
-// - DOM 누락 시 크래시 방지(가드)
+// index.js
+// - 영상(YouTube/native) 제어 + qa iframe과 postMessage 동기화
+// - ✅ 모바일(좁은 폭)에서 Q&A 접기/펼치기 + 하단 높이 드래그(resizable)
 
 (function () {
   "use strict";
 
   // ✅ 첫 화면 기본 영상 (원하시는 강의 URL로 교체하세요)
-  const DEFAULT_VIDEO_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+  const DEFAULT_VIDEO_URL = "https://www.youtube.com/watch?v=HnvitMTkXro";
+
+  const appRoot = document.getElementById("appRoot") || document.querySelector(".app");
 
   const videoUrlInput = document.getElementById("videoUrl");
   const videoApplyBtn = document.getElementById("videoApply");
@@ -17,8 +18,11 @@
   const ytPlayerEl = document.getElementById("ytPlayer");
   const placeholder = document.getElementById("videoPlaceholder");
 
-  // ✅ 기존: iframe[src="html/qa.html"] → /html/qa.html이면 못 찾음
-  // ✅ id="qaFrame"를 우선 사용
+  const qaPanel = document.getElementById("qaPanel") || document.querySelector(".right");
+  const qaToggleBtn = document.getElementById("qaToggle");
+  const qaResizeHandle = document.getElementById("qaResizeHandle");
+
+  // ✅ id="qaFrame" 우선
   const qaFrame =
     document.getElementById("qaFrame") ||
     document.querySelector('iframe[src$="/html/qa.html"], iframe[src*="qa.html"]');
@@ -27,6 +31,160 @@
     if (!qaFrame || !qaFrame.contentWindow) return;
     qaFrame.contentWindow.postMessage(msg, "*");
   }
+
+  /* =========================================================
+   * 모바일 Q&A UX: 접기/펼치기 + 드래그 리사이즈
+   * - 모바일(<=980px)에서만 동작
+   * - 높이는 CSS 변수 --qaHeight(px)로 제어
+   * ========================================================= */
+  const MOBILE_MQ = window.matchMedia("(max-width: 980px)");
+  const LS_KEY = "aiqoo.qaHeightPx";
+  const LS_COLLAPSE_KEY = "aiqoo.qaCollapsed";
+
+  function isMobileLayout() {
+    return !!MOBILE_MQ.matches;
+  }
+
+  function setQaHeightPx(px) {
+    if (!appRoot) return;
+    const clamped = Math.max(0, Math.floor(px || 0));
+    appRoot.style.setProperty("--qaHeight", clamped + "px");
+    try { localStorage.setItem(LS_KEY, String(clamped)); } catch (_) {}
+  }
+
+  function getSavedQaHeightPx() {
+    try {
+      const v = Number(localStorage.getItem(LS_KEY) || 0);
+      return Number.isFinite(v) && v > 0 ? v : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function setCollapsed(collapsed) {
+    const on = !!collapsed;
+    document.body.classList.toggle("qa-collapsed", on);
+    if (qaToggleBtn) qaToggleBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    try { localStorage.setItem(LS_COLLAPSE_KEY, on ? "1" : "0"); } catch (_) {}
+  }
+
+  function getSavedCollapsed() {
+    try { return (localStorage.getItem(LS_COLLAPSE_KEY) || "0") === "1"; }
+    catch { return false; }
+  }
+
+  function applyMobileQaState() {
+    if (!isMobileLayout()) {
+      // 데스크톱: 접기 상태 제거 + 인라인 높이 제거
+      document.body.classList.remove("qa-collapsed");
+      if (appRoot) appRoot.style.removeProperty("--qaHeight");
+      return;
+    }
+
+    // 모바일: 저장값 적용
+    const collapsed = getSavedCollapsed();
+    setCollapsed(collapsed);
+
+    if (!collapsed) {
+      const saved = getSavedQaHeightPx();
+      const fallback = Math.round(window.innerHeight * 0.45);
+      const h = saved > 0 ? saved : fallback;
+      setQaHeightPx(h);
+    }
+  }
+
+  function toggleQaPanel() {
+    if (!isMobileLayout()) return;
+
+    const currentlyCollapsed = document.body.classList.contains("qa-collapsed");
+    if (currentlyCollapsed) {
+      // 펼치기
+      setCollapsed(false);
+      const saved = getSavedQaHeightPx();
+      const fallback = Math.round(window.innerHeight * 0.45);
+      const h = saved > 0 ? saved : fallback;
+      setQaHeightPx(h);
+    } else {
+      // 접기(현재 높이는 저장)
+      const curr = getComputedStyle(appRoot).getPropertyValue("--qaHeight").trim();
+      const px = Number(curr.replace("px", "")) || getSavedQaHeightPx() || Math.round(window.innerHeight * 0.45);
+      setQaHeightPx(px);
+      setCollapsed(true);
+    }
+  }
+
+  function bindResizeHandle() {
+    if (!qaResizeHandle || !appRoot) return;
+
+    let dragging = false;
+    let pointerId = null;
+
+    const MIN_PX = 180;
+    const MAX_RATIO = 0.80;
+
+    function clampHeight(h) {
+      const maxPx = Math.round(window.innerHeight * MAX_RATIO);
+      return Math.max(MIN_PX, Math.min(maxPx, Math.floor(h)));
+    }
+
+    function onDown(e) {
+      if (!isMobileLayout()) return;
+      if (document.body.classList.contains("qa-collapsed")) return;
+
+      dragging = true;
+      pointerId = e.pointerId;
+      try { qaResizeHandle.setPointerCapture(pointerId); } catch (_) {}
+      e.preventDefault();
+    }
+
+    function onMove(e) {
+      if (!dragging) return;
+      if (!isMobileLayout()) return;
+      if (document.body.classList.contains("qa-collapsed")) return;
+
+      const h = window.innerHeight - e.clientY; // 하단 패널 높이
+      setQaHeightPx(clampHeight(h));
+      e.preventDefault();
+    }
+
+    function onUp(e) {
+      if (!dragging) return;
+      dragging = false;
+      try { qaResizeHandle.releasePointerCapture(pointerId); } catch (_) {}
+      pointerId = null;
+      e.preventDefault();
+    }
+
+    qaResizeHandle.addEventListener("pointerdown", onDown, { passive: false });
+    window.addEventListener("pointermove", onMove, { passive: false });
+    window.addEventListener("pointerup", onUp, { passive: false });
+    window.addEventListener("pointercancel", onUp, { passive: false });
+  }
+
+  if (qaToggleBtn) {
+    qaToggleBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      toggleQaPanel();
+    });
+  }
+  bindResizeHandle();
+  applyMobileQaState();
+  MOBILE_MQ.addEventListener?.("change", applyMobileQaState);
+
+  window.addEventListener("resize", () => {
+    if (!isMobileLayout()) return;
+    if (document.body.classList.contains("qa-collapsed")) return;
+
+    const saved = getSavedQaHeightPx();
+    if (!saved) return;
+
+    const maxPx = Math.round(window.innerHeight * 0.80);
+    if (saved > maxPx) setQaHeightPx(maxPx);
+  });
+
+  /* =========================================================
+   * 영상/QA 동기화 로직
+   * ========================================================= */
 
   let provider = "native"; // "youtube" | "native"
   let youtubeId = "";
@@ -133,7 +291,7 @@
     setTimeout(() => sendPaused(), 0);
   }
 
-  // Native events (가드)
+  // Native events
   if (nativeVideo) {
     nativeVideo.addEventListener("play", () => {
       provider = "native";
@@ -149,109 +307,98 @@
     });
   }
 
-  // YouTube API load
-  function loadYouTubeApiOnce() {
-    if (window.YT && window.YT.Player) return;
+  // YouTube IFrame API
+  function ensureYT() {
+    return new Promise((resolve) => {
+      if (window.YT && window.YT.Player) return resolve();
 
-    window.onYouTubeIframeAPIReady = function () {
-      createYouTubePlayer();
-    };
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.body.appendChild(tag);
 
-    const s = document.createElement("script");
-    s.src = "https://www.youtube.com/iframe_api";
-    s.async = true;
-    document.head.appendChild(s);
+      window.onYouTubeIframeAPIReady = () => resolve();
+    });
   }
 
-  function createYouTubePlayer() {
-    if (!(window.YT && window.YT.Player)) return;
-    if (ytPlayer) return;
+  async function initYouTubePlayer(yid) {
+    await ensureYT();
+    ytReady = true;
+
     if (!ytPlayerEl) return;
 
-    ytPlayer = new YT.Player(ytPlayerEl, {
-      videoId: "",
-      playerVars: { rel: 0, modestbranding: 1 },
+    try { ytPlayer?.destroy?.(); } catch (_) {}
+    ytPlayer = null;
+
+    ytPlayer = new window.YT.Player("ytPlayer", {
+      videoId: yid,
+      playerVars: { enablejsapi: 1, rel: 0, modestbranding: 1 },
       events: {
         onReady: () => {
-          ytReady = true;
-
-          if (pendingYoutubeId) {
-            ytPlayer.loadVideoById(pendingYoutubeId);
-            pendingYoutubeId = "";
-          }
+          provider = "youtube";
+          youtubeId = yid;
+          sendVideoInfo();
           broadcastCurrentState();
         },
-        onStateChange: (event) => {
+        onStateChange: (ev) => {
           provider = "youtube";
-          const s = event.data; // 1=PLAYING, 2=PAUSED, 0=ENDED
-          if (s === 1) sendPlaying();
-          else if (s === 2) sendPaused();
-          else if (s === 0) sendPaused();
-        }
-      }
+          const st = ev?.data;
+          if (st === 1) sendPlaying();
+          else sendPaused();
+        },
+      },
     });
-    window.ytPlayer = ytPlayer;
   }
 
-  function applyVideo(url) {
-    videoUrl = (url || "").trim();
+  async function applyVideo(url) {
+    const u = (url || "").trim();
+    if (!u) return;
 
-    if (!videoUrl) {
-      showPlaceholder(true);
-      showNative(false);
-      showYouTube(false);
-      provider = "native";
-      youtubeId = "";
-      videoKey = "default";
-      sendVideoInfo();
-      sendPaused();
-      return;
-    }
+    videoUrl = u;
+    youtubeId = "";
+    provider = "native";
+    videoKey = "default";
 
-    try {
-      if (nativeVideo) nativeVideo.pause();
-    } catch (_) {}
+    if (isYouTubeUrl(u)) {
+      const yid = parseYouTubeId(u);
+      if (!yid) {
+        showPlaceholder(true);
+        showNative(false);
+        showYouTube(false);
+        return;
+      }
 
-    if (isYouTubeUrl(videoUrl)) {
       provider = "youtube";
-      youtubeId = parseYouTubeId(videoUrl);
-      videoKey = makeVideoKey(provider, videoUrl, youtubeId);
+      youtubeId = yid;
+      videoKey = makeVideoKey(provider, "", youtubeId);
 
       showPlaceholder(false);
       showNative(false);
       showYouTube(true);
 
-      loadYouTubeApiOnce();
-      createYouTubePlayer();
-
+      pendingYoutubeId = yid;
       sendVideoInfo();
-
-      if (youtubeId) {
-        if (ytPlayer && ytReady) ytPlayer.loadVideoById(youtubeId);
-        else pendingYoutubeId = youtubeId;
-      }
-
-      setTimeout(() => sendPaused(), 0);
-    } else {
-      provider = "native";
-      youtubeId = "";
-      videoKey = makeVideoKey(provider, videoUrl, "");
-
-      showPlaceholder(false);
-      showYouTube(false);
-      showNative(true);
-
-      if (nativeVideo) {
-        nativeVideo.src = videoUrl;
-        nativeVideo.load();
-      }
-
-      sendVideoInfo();
-      setTimeout(() => sendPaused(), 0);
+      initYouTubePlayer(pendingYoutubeId);
+      return;
     }
+
+    provider = "native";
+    youtubeId = "";
+    videoKey = makeVideoKey(provider, u, "");
+
+    showPlaceholder(false);
+    showYouTube(false);
+    showNative(true);
+
+    if (nativeVideo) {
+      nativeVideo.src = u;
+      nativeVideo.load();
+    }
+
+    sendVideoInfo();
+    setTimeout(() => sendPaused(), 0);
   }
 
-  // UI events (가드)
+  // UI events
   if (videoApplyBtn && videoUrlInput) {
     videoApplyBtn.addEventListener("click", () => applyVideo(videoUrlInput.value || ""));
     videoUrlInput.addEventListener("keydown", (e) => {
@@ -275,6 +422,14 @@
 
     if (e.data.type === "qaFocus") {
       pauseVideoAndBroadcast();
+
+      // ✅ 모바일에서 Q&A가 접혀있으면 자동으로 펼쳐줌
+      if (isMobileLayout() && document.body.classList.contains("qa-collapsed")) {
+        setCollapsed(false);
+        const saved = getSavedQaHeightPx();
+        const fallback = Math.round(window.innerHeight * 0.45);
+        setQaHeightPx(saved > 0 ? saved : fallback);
+      }
       return;
     }
 
@@ -289,10 +444,8 @@
   showNative(false);
   showYouTube(false);
 
-  // ✅ 핵심: 첫 화면 기본 영상 자동 로드
   const initialUrl = (videoUrlInput?.value || "").trim() || DEFAULT_VIDEO_URL;
 
-  // 입력창에도 기본값을 반영(사용자에게 보이게)
   if (videoUrlInput && !videoUrlInput.value.trim()) {
     videoUrlInput.value = initialUrl;
   }

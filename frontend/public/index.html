@@ -6,47 +6,31 @@
   <title>AIQOO Capstone</title>
 
   <link rel="icon" href="/favicon.ico" />
-  <link rel="stylesheet" href="/css/index.css" />
-
-  <style>
-    /* index.css가 깨져도 레이아웃이 무조건 살아있게 안전장치 */
-    html, body { height: 100%; margin: 0; }
-    .app { height: 100vh; display: grid; grid-template-columns: 1.25fr 0.75fr; }
-    .left { position: relative; background: #0b0b0b; overflow: hidden; }
-    .right { border-left: 1px solid rgba(255,255,255,0.06); background: #0c0c0e; min-width: 320px; }
-    .panel { height: 100%; display: flex; flex-direction: column; }
-    .toolbar { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.06); display:flex; gap:8px; align-items:center; color:#fff; }
-    .toolbar input { flex:1; min-width: 0; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color:#fff; outline:none; }
-    .toolbar button { padding:10px 12px; border-radius:10px; border:0; background: #4f46e5; color:#fff; font-weight:800; cursor:pointer; }
-    .videoWrap { position:absolute; inset:0; display:grid; place-items:center; }
-    .videoBox { width: min(1200px, 96%); aspect-ratio: 16/9; border-radius: 14px; overflow:hidden; background:#000; }
-    .videoBox iframe, .videoBox video { width:100%; height:100%; display:block; }
-    .placeholder { position:absolute; inset:0; display:grid; place-items:center; color: rgba(255,255,255,0.65); font-weight:700; }
-    .hidden { display:none !important; }
-    iframe.qa { width:100%; height:100%; border:0; display:block; }
-  </style>
+  <link rel="stylesheet" href="/index.css" />
 </head>
 
 <body>
-  <div class="app">
+  <div class="app" id="appRoot">
     <!-- LEFT: 영상 -->
     <section class="left">
-      <div class="toolbar" style="position:absolute; left:10px; right:10px; top:10px; z-index:10; backdrop-filter: blur(6px); background: rgba(0,0,0,0.35); border-radius: 12px;">
+      <div class="toolbar">
         <input id="videoUrl" placeholder="YouTube URL 또는 mp4 URL 입력 후 적용" />
         <button id="videoApply" type="button">적용</button>
+
+        <!-- ✅ 모바일에서만 노출: Q&A 펼치기/접기 -->
+        <button id="qaToggle" type="button" aria-pressed="false" title="Q&A 접기/펼치기">
+          🧩 Q&A
+        </button>
       </div>
 
       <div class="videoWrap">
         <div class="videoBox">
-          <!-- Native Video (mp4) -->
           <video id="nativeVideo" class="hidden" controls playsinline></video>
 
-          <!-- YouTube Player mount -->
           <div id="youtubeWrap" class="hidden" style="width:100%;height:100%;">
             <div id="ytPlayer" style="width:100%;height:100%;"></div>
           </div>
 
-          <!-- Placeholder -->
           <div id="videoPlaceholder" class="placeholder">
             URL을 입력하고 “적용”을 누르세요.
           </div>
@@ -55,13 +39,15 @@
     </section>
 
     <!-- RIGHT: QA iframe -->
-    <section class="right">
+    <section class="right" id="qaPanel">
       <div class="panel">
-        <!-- ✅ 이 iframe이 우측 질문 레이어입니다 -->
+        <!-- ✅ 모바일에서 드래그로 높이 조절 -->
+        <div id="qaResizeHandle" class="qa-resize-handle" aria-label="Q&A 높이 조절"></div>
+
         <iframe
           id="qaFrame"
           class="qa"
-          src="/html/qa.html"
+          src="/qa.html"
           title="AIQOO Q&A"
           loading="eager"
         ></iframe>
@@ -69,7 +55,6 @@
     </section>
   </div>
 
-  <!-- ✅ index.js는 ESM이면 module로 -->
-  <script type="module" src="/js/index.js"></script>
+  <script type="module" src="/index.js"></script>
 </body>
 </html>
