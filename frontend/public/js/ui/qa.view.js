@@ -1,16 +1,10 @@
 // qa.view.js
-// - Q/A 표시를 "❓/💡" 이모지로 구성
-// - 불필요한 빈 줄 제거 (연속 개행 정리)
-// - 카드/행 간격을 타이트하게 유지
-// - 외부에서 renderQA(container, { question, answer }) 형태로 호출
+// - 우측 패널(root)을 건드리지 않고
+// - 내부의 "목록 영역(.aiqoo-qa-list)"에만 Q/A 아이템을 추가합니다.
+// - 따라서 "질문 시작하기 버튼" / "상단 헤더" 등 레이아웃이 사라지지 않습니다.
 
 function normalizeText(input) {
   const t = (input ?? "").toString();
-
-  // 1) 앞뒤 공백 제거
-  // 2) \r\n -> \n 통일
-  // 3) 3개 이상 연속 개행은 2개로 축소 (너무 긴 공백 방지)
-  // 4) 각 줄 끝 공백 제거
   return t
     .replace(/\r\n/g, "\n")
     .split("\n")
@@ -30,20 +24,53 @@ function escapeHTML(str) {
 }
 
 function formatAnswerToHTML(answerText) {
-  // markdown 렌더러가 없다면, 최소한 개행만 <br>로 처리
-  // (필요시 marked/markdown-it로 교체 가능)
   const safe = escapeHTML(answerText);
   return safe.replaceAll("\n", "<br>");
 }
 
-export function renderQA(containerEl, { question, answer }) {
-  if (!containerEl) return;
+/**
+ * containerEl: 우측 패널 전체(root) 또는 목록 영역 모두 가능
+ * - root가 들어오면 내부에 .aiqoo-qa-list를 자동 생성/탐색해서 거기에만 append
+ */
+function getListContainer(containerEl) {
+  if (!containerEl) return null;
+
+  // 이미 목록 영역이면 그대로 사용
+  if (containerEl.classList?.contains("aiqoo-qa-list")) return containerEl;
+
+  // root 내부에서 목록 영역 탐색
+  let list = containerEl.querySelector?.(".aiqoo-qa-list");
+  if (list) return list;
+
+  // 없으면 생성 (root 하단에 붙임)
+  list = document.createElement("div");
+  list.className = "aiqoo-qa-list";
+  containerEl.appendChild(list);
+  return list;
+}
+
+/**
+ * 선택: 기존 목록을 비우고 새 Q/A만 보여주고 싶을 때 사용
+ */
+export function clearQA(containerEl) {
+  const list = getListContainer(containerEl);
+  if (list) list.innerHTML = "";
+}
+
+/**
+ * Q/A 1개 렌더링(append)
+ */
+export function renderQA(containerEl, { question, answer, mode = "append" }) {
+  const list = getListContainer(containerEl);
+  if (!list) return;
 
   const q = normalizeText(question);
   const a = normalizeText(answer);
 
-  // 기존 내용 초기화(원하면 append 방식으로 바꾸세요)
-  containerEl.innerHTML = "";
+  if (mode === "replace") {
+    // "목록 영역"만 초기화 (root 전체를 날리지 않음)
+    list.innerHTML = "";
+  }
 
   const wrapper = document.createElement("div");
   wrapper.className = "aiqoo-qa-item";
@@ -65,7 +92,7 @@ export function renderQA(containerEl, { question, answer }) {
   wrapper.appendChild(qRow);
   wrapper.appendChild(aRow);
 
-  containerEl.appendChild(wrapper);
+  list.appendChild(wrapper);
 
   return { q, a };
 }
