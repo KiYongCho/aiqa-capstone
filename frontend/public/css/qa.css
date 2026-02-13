@@ -331,3 +331,50 @@
     white-space: pre-wrap;
   }
   
+  /* aiqoo qa compact UI */
+.aiqoo-qa-item {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Q/A row */
+.aiqoo-qa-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;          /* 빈 줄 원인 제거 */
+  padding: 0;         /* 빈 줄 원인 제거 */
+}
+
+/* 질문: 컬러 강조 */
+.aiqoo-qa-question {
+  color: #facc15;
+  font-weight: 700;
+}
+
+/* 답변: 질문과 너무 멀어지지 않게 */
+.aiqoo-qa-answer {
+  color: #e5e7eb;
+  margin-top: 6px;    /* 딱 필요한 만큼만 */
+}
+
+/* 아이콘: 색상 있는 이모지는 그대로 */
+.aiqoo-qa-icon {
+  font-size: 18px;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+/* 텍스트: 줄간격 타이트 */
+.aiqoo-qa-text {
+  margin: 0;          /* p/div 기본 margin 제거 */
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* 답변 내부 <br> 처리 시 과도한 여백 방지 */
+.aiqoo-qa-answer-text br {
+  line-height: 1.5;
+}

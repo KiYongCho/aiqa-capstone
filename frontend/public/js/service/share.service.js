@@ -1,39 +1,42 @@
-/* share.service.js
- * - 카카오/메일 공유 전담
- * - named export: shareKakao, shareMail
- *
- * ✅ FIX:
- *  1) Kakao SDK 존재하면 init 보장 (data-kakao-key / localStorage)
- *  2) Kakao.Share.sendDefault 우선, 없으면 Kakao.Link.sendDefault 폴백
- *  3) 실패 시 "도메인 등록/키 종류" 등 원인 메시지 명확화
- */
+// share.service.js
+// - 카카오 공유 길이 제한 대응 (요약 전송)
+// - 필요하면 전체 답변을 클립보드로 복사(사용자가 카톡에 붙여넣기 가능)
+// - shareKakao({ question, answer, shareUrl }) 형태로 사용
+//
+// 요구사항:
+// 1) 모바일 확인 불필요 -> 브라우저 환경에서 안정 동작만 집중
+// 2) 전체 문장 잘림 방지 -> 카카오에는 요약, 전체는 복사/URL
 
-function ensureText(text) {
-  return String(text || "").trim();
+const KAKAO_DESC_MAX = 900; // 안전하게 900자(환경/템플릿에 따라 더 짧게 잡아도 됨)
+
+function normalizeText(input) {
+  return (input ?? "")
+    .toString()
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
-function getKakaoKey() {
-  // 우선순위: localStorage > body dataset
-  const ls = (localStorage.getItem("AIQOO_KAKAO_KEY") || "").trim();
-  if (ls) return ls;
-
-  const ds = (document.body?.dataset?.kakaoKey || "").trim();
-  if (ds) return ds;
-
-  return "";
+function makeSummary(text, maxLen) {
+  const t = normalizeText(text);
+  if (t.length <= maxLen) return t;
+  return t.slice(0, maxLen - 3) + "...";
 }
 
 async function copyToClipboard(text) {
-  const t = ensureText(text);
+  const t = normalizeText(text);
   if (!t) return false;
 
   try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
+    if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(t);
       return true;
     }
-  } catch (_) {}
+  } catch (_) {
+    // fallback 시도
+  }
 
+  // 구형 fallback
   try {
     const ta = document.createElement("textarea");
     ta.value = t;
@@ -50,158 +53,52 @@ async function copyToClipboard(text) {
   }
 }
 
-function ensureKakaoInitialized() {
-  const Kakao = window.Kakao;
-  if (!Kakao) return { ok: false, reason: "no_sdk" };
-
-  const key = getKakaoKey();
-  if (!key) return { ok: false, reason: "no_key" };
-
-  try {
-    if (typeof Kakao.isInitialized === "function") {
-      if (!Kakao.isInitialized()) Kakao.init(key);
-    } else if (typeof Kakao.init === "function") {
-      // 구버전 대비
-      Kakao.init(key);
-    }
-  } catch (e) {
-    console.error("[share] Kakao.init failed:", e);
-    return { ok: false, reason: "init_failed", error: e };
-  }
-
-  return { ok: true };
+function assertKakaoReady() {
+  if (!window.Kakao) throw new Error("Kakao SDK가 로드되지 않았습니다.");
+  if (!window.Kakao.isInitialized?.()) throw new Error("Kakao SDK가 initialize되지 않았습니다.");
 }
 
-/**
- * 카카오 공유
- * @param {string} answerText
- * @param {object} [opts]
- * @param {string} [opts.title]
- * @param {string} [opts.url]
- * @param {string} [opts.imageUrl] (https 권장)
- */
-export async function shareKakao(answerText, opts = {}) {
-  const text = ensureText(answerText);
-  if (!text) return;
+export async function shareKakao({ question, answer, shareUrl, autoCopyFullText = true }) {
+  assertKakaoReady();
 
-  const title = opts.title || "AIQOO 답변 공유";
-  const url = opts.url || window.location.href;
+  const q = normalizeText(question);
+  const a = normalizeText(answer);
 
-  // 1) Kakao SDK/키/init 보장
-  const init = ensureKakaoInitialized();
-  if (!init.ok) {
-    const ok = await copyToClipboard(`${title}\n\n${text}\n\n${url}`);
+  const fullText = `❓ 질문\n${q}\n\n💡 답변\n${a}`;
+  const summary = makeSummary(fullText, KAKAO_DESC_MAX);
 
-    if (init.reason === "no_sdk") {
-      alert(
-        "카카오 SDK가 로드되지 않았습니다.\n" +
-          "qa.html에 Kakao SDK 스크립트가 포함되어 있는지 확인해 주세요.\n\n" +
-          "지금은 내용이 클립보드에 복사되었습니다."
-      );
-      return;
-    }
-    if (init.reason === "no_key") {
-      alert(
-        "카카오 공유를 사용하려면 'JavaScript 키'가 필요합니다.\n\n" +
-          "해결:\n" +
-          "- qa.html <body data-kakao-key=\"JS키\"> 설정\n" +
-          "또는\n" +
-          "- localStorage.setItem('AIQOO_KAKAO_KEY','JS키')\n\n" +
-          "지금은 내용이 클립보드에 복사되었습니다."
-      );
-      return;
-    }
-    if (init.reason === "init_failed") {
-      alert(
-        "Kakao.init() 실패.\n" +
-          "대부분 아래 중 하나입니다:\n" +
-          "1) REST 키를 넣음(❌) → JavaScript 키(✅) 사용\n" +
-          "2) 카카오 개발자 콘솔에 현재 도메인(Web) 미등록\n\n" +
-          "지금은 내용이 클립보드에 복사되었습니다."
-      );
-      return;
-    }
-
-    if (ok) alert("카카오 공유를 사용할 수 없어 내용이 클립보드에 복사되었습니다.");
-    else alert("카카오 공유 불가 + 클립보드 복사도 실패했습니다.");
-    return;
+  // 카카오 전송 전에 전체를 클립보드로 복사(선택)
+  let copied = false;
+  if (autoCopyFullText) {
+    copied = await copyToClipboard(fullText);
   }
 
-  const Kakao = window.Kakao;
+  const url = shareUrl || window.location.href;
 
-  // 2) Share API 우선 / Link API 폴백
-  const imageUrl =
-    opts.imageUrl ||
-    // 운영에서는 800x400 이상 HTTPS 이미지 권장
-    `${window.location.origin}/favicon.ico`;
-
-  const payload = {
+  // feed 타입이 가장 UI가 안정적
+  window.Kakao.Share.sendDefault({
     objectType: "feed",
     content: {
-      title,
-      description: text.length > 180 ? text.slice(0, 180) + "…" : text,
-      imageUrl,
-      link: { mobileWebUrl: url, webUrl: url },
+      title: "AIQOO Q&A",
+      description: summary,
+      // imageUrl은 필수인 경우가 있어 안전하게 기본 썸네일을 쓰거나 제거/대체하세요.
+      // 프로젝트에 썸네일이 없다면 아래 라인은 지우고, 카카오 정책에 맞게 처리하세요.
+      imageUrl: "https://dummyimage.com/1200x630/111827/e5e7eb&text=AIQOO",
+      link: {
+        webUrl: url,
+        mobileWebUrl: url,
+      },
     },
     buttons: [
       {
-        title: "페이지 열기",
-        link: { mobileWebUrl: url, webUrl: url },
+        title: "전체 보기",
+        link: {
+          webUrl: url,
+          mobileWebUrl: url,
+        },
       },
     ],
-  };
+  });
 
-  try {
-    if (Kakao.Share && typeof Kakao.Share.sendDefault === "function") {
-      Kakao.Share.sendDefault(payload);
-      return;
-    }
-    if (Kakao.Link && typeof Kakao.Link.sendDefault === "function") {
-      Kakao.Link.sendDefault(payload);
-      return;
-    }
-
-    // 둘 다 없으면 폴백
-    const ok = await copyToClipboard(`${title}\n\n${text}\n\n${url}`);
-    if (ok) {
-      alert(
-        "카카오 공유 API(Share/Link)를 찾지 못했습니다.\n" +
-          "SDK 버전/로딩을 확인해 주세요.\n\n" +
-          "지금은 내용이 클립보드에 복사되었습니다."
-      );
-    } else {
-      alert("카카오 공유 API를 사용할 수 없습니다. (클립보드 복사도 실패)");
-    }
-  } catch (err) {
-    console.error("[share] Kakao sendDefault error:", err);
-
-    // 가장 흔한 원인: 도메인 미등록/HTTPS/권한
-    const ok = await copyToClipboard(`${title}\n\n${text}\n\n${url}`);
-    alert(
-      "카카오 공유 중 오류가 발생했습니다.\n\n" +
-        "체크리스트:\n" +
-        "1) 카카오 개발자 콘솔 > 플랫폼 > Web 에 현재 도메인 등록\n" +
-        "2) JavaScript 키 사용(REST 키 X)\n" +
-        "3) HTTPS 도메인 권장(특히 운영)\n\n" +
-        (ok ? "지금은 내용이 클립보드에 복사되었습니다." : "클립보드 복사도 실패했습니다.")
-    );
-  }
+  return { copied, summary, fullText };
 }
-
-export function shareMail(answerText, opts = {}) {
-  const text = ensureText(answerText);
-  if (!text) return;
-
-  const subject = opts.subject || "AIQOO 답변 공유";
-  const to = opts.to || "";
-  const url = window.location.href;
-
-  const body = `${text}\n\n---\n공유 링크: ${url}`;
-  const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(
-    subject
-  )}&body=${encodeURIComponent(body)}`;
-
-  window.location.href = mailto;
-}
-
-export default { shareKakao, shareMail };
