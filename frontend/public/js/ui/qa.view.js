@@ -2,8 +2,8 @@
 // - Q/A는 질문(❓)만 이모지 표시 (요구사항: 답변 레이어의 💡 제거)
 // - 버튼 중앙 정렬 + 답변삭제 버튼 추가
 
-import { normalizeText } from "/js/core/utils.js";
-import { markdownToSafeHTML } from "/js/core/markdown.util.js";
+import { normalizeText } from "/js/util/utils.js";
+import { markdownToSafeHTML } from "/js/util/markdown.util.js";
 
 function escapeHTML(str) {
   const s = String(str ?? "");
