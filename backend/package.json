@@ -4,7 +4,8 @@
   "description": "AIQOO backend (Render root=backend)",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "seven-poker": "node sevenPoker.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
